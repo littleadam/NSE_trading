@@ -89,4 +89,12 @@ class PositionManager:
         self._log_position_state()
         return actions
 
-    # ... (rest of the existing methods)
+    # ... (rest of the existig methods)
+    def add_new_position(self, position: Dict):
+        symbol = position['symbol']
+        self.positions[symbol] = position
+        self.original_premiums[symbol] = position['original_premium']
+
+    def update_position_status(self, symbol: str, status: str):
+        if symbol in self.positions:
+            self.positions[symbol]['status'] = status
