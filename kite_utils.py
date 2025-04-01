@@ -30,4 +30,63 @@ class KiteManager:
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
 
-    # ... (rest of KiteManager methods from previous version)
+    def _log_order(self, order_details: Dict):
+        """Log order details to CSV file"""
+        with open('order_history.csv', 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=order_details.keys())
+            if csvfile.tell() == 0:
+                writer.writeheader()
+            writer.writerow(order_details)
+
+    def _get_funds(self):
+        try:
+            return self.kite.margins()['equity']['available']['live_balance']
+        except Exception as e:
+            self.logger.error(f"Failed to fetch funds: {str(e)}")
+            return None
+
+    def place_market_order(self, tradingsymbol: str, exchange: str, 
+                         transaction_type: str, quantity: int, reason: str) -> Dict:
+        """Enhanced order placement with logging"""
+        order_details = {
+            'timestamp': datetime.now().isoformat(),
+            'symbol': tradingsymbol,
+            'exchange': exchange,
+            'type': transaction_type,
+            'quantity': quantity,
+            'reason': reason,
+            'status': 'PENDING',
+            'error': None,
+            'funds_before': None,
+            'funds_after': None,
+            'order_id': None
+        }
+
+        try:
+            order_details['funds_before'] = self._get_funds()
+            order_id = self.kite.place_order(
+                variety=KiteConnect.VARIETY_REGULAR,
+                exchange=exchange,
+                tradingsymbol=tradingsymbol,
+                transaction_type=transaction_type,
+                quantity=quantity,
+                order_type=KiteConnect.ORDER_TYPE_MARKET,
+                product=KiteConnect.PRODUCT_NRML
+            )
+            order_details.update({
+                'status': 'SUCCESS',
+                'order_id': order_id,
+                'funds_after': self._get_funds()
+            })
+            self.logger.info(f"Order {order_id} placed successfully for {tradingsymbol}")
+        except Exception as e:
+            order_details.update({
+                'status': 'FAILED',
+                'error': str(e)
+            })
+            self.logger.error(f"Order failed for {tradingsymbol}: {str(e)}")
+        
+        self._log_order(order_details)
+        return order_details
+
+    # Add similar enhanced logging for place_sl_order and other methods# ... (rest of KiteManager methods from previous version)
