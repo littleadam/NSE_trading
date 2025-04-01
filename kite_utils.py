@@ -89,4 +89,30 @@ class KiteManager:
         self._log_order(order_details)
         return order_details
 
-    # Add similar enhanced logging for place_sl_order and other methods# ... (rest of KiteManager methods from previous version)
+    def get_positions(self) -> Dict:
+        return self.kite.positions()
+    
+    def get_orders(self) -> List[Dict]:
+        return self.kite.orders()
+    
+    def place_sl_order(self, tradingsymbol: str, exchange: str, 
+                      transaction_type: str, quantity: int, trigger_price: float):
+        try:
+            order_id = self.kite.place_order(
+                variety=KiteConnect.VARIETY_REGULAR,
+                exchange=exchange,
+                tradingsymbol=tradingsymbol,
+                transaction_type=transaction_type,
+                quantity=quantity,
+                order_type=KiteConnect.ORDER_TYPE_SL,
+                product=KiteConnect.PRODUCT_NRML,
+                trigger_price=trigger_price
+            )
+            logging.info(f"SL Order placed for {tradingsymbol}, ID: {order_id}")
+            return order_id
+        except Exception as e:
+            logging.error(f"SL Order placement failed: {e}")
+            raise
+
+    def get_ltp(self, instruments: List[Dict]) -> Dict:
+        return self.kite.ltp(instruments)# Add similar enhanced logging for place_sl_order and other methods# ... (rest of KiteManager methods from previous version)
