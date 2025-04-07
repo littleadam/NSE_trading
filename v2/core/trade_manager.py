@@ -1,3 +1,4 @@
+%%writefile /content/core/trade_manager.py
 import time
 import logging
 from datetime import datetime, timedelta
