@@ -4,6 +4,12 @@ API_CREDENTIALS = {
     "access_token": "YOUR_ACCESS_TOKEN"
 }
 
+NGROK_CONFIG = {
+    "auth_token": "2vQbN501tKymUQHcvOr1mfXCnTw_GCk3FnKDGhc2R7pHHtRZ",
+    "port": 8000,
+    "region": "us"  # or "eu", "ap", "au", "sa"
+}
+
 TRADE_CONFIG = {
     # Trading Parameters
     "bias": 50,
