@@ -37,14 +37,9 @@ def initialize_kite():
         raise
         
 def initialize_trading():
-    # Start ngrok tunnel
-    ngrok config add-authtoken 2vQbN501tKymUQHcvOr1mfXCnTw_GCk3FnKDGhc2R7pHHtRZ
-    tunnel = ngrok.connect(8000)
-    logger.info(f"WebSocket tunnel created: {tunnel.public_url}")
-    
-    # Initialize Kite Connect
-    kite = KiteConnect(api_key=settings.API_CREDENTIALS['api_key'])
-    kite.set_access_token(settings.API_CREDENTIALS['access_token'])
+    # Phase 1: Infrastructure setup
+    tunnel = configure_ngrok()
+    kite = initialize_kite()
     
     # Create manager instance
     return TradeManager(kite, settings.TRADE_CONFIG)
