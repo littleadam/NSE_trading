@@ -24,6 +24,17 @@ def configure_ngrok():
     except Exception as e:
         logger.critical(f"Ngrok setup failed: {str(e)}")
         raise
+
+def initialize_kite():
+    """Initialize Kite Connect with error handling"""
+    try:
+        kite = KiteConnect(api_key=settings.API_CREDENTIALS['api_key'])
+        kite.set_access_token(settings.API_CREDENTIALS['access_token'])
+        logger.info("Kite Connect initialized successfully")
+        return kite
+    except Exception as e:
+        logger.critical(f"Kite login failed: {str(e)}")
+        raise
         
 def initialize_trading():
     # Start ngrok tunnel
