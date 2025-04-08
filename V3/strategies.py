@@ -109,7 +109,7 @@ class OptionStrategy:
             current_price = abs(position['last_price'])
             pnl_pct = (current_price - entry_price)/entry_price
 
-            if pnl_pct <= -0.25 and BUY_HEDGE:
+            if pnl_pct <= -HEDGE_LOSS_THRESHOLD  and BUY_HEDGE:
                 strike = position['strike']
                 expiry = position['expiry']
                 option_type = position['instrument_type']
@@ -217,7 +217,7 @@ class OptionStrategy:
 
     def check_profit_targets(self):
         net_profit = self.position_manager.calculate_unrealized_pnl()
-        if net_profit >= PROFIT_POINTS * 75:  # 75 Rs per point
+        if net_profit >= PROFIT_POINTS * NIFTY_LOT_SIZE:  # 75 Rs per point
             self.log.info(f"Profit target {PROFIT_POINTS} points reached. Closing all.")
             self.close_all_positions()
             return True
