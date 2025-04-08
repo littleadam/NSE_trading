@@ -55,6 +55,8 @@ def main():
         logger.critical(f"Fatal error: {str(e)}", exc_info=True)
     finally:
         ngrok.kill()
+        if 'manager' in locals():
+            manager.stop()
         logger.info("Application shutdown complete")
 
 if __name__ == "__main__":
