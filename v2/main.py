@@ -11,6 +11,7 @@ logger = configure_logger('main')
 
 def initialize_trading():
     # Start ngrok tunnel
+    ngrok config add-authtoken 2vQbN501tKymUQHcvOr1mfXCnTw_GCk3FnKDGhc2R7pHHtRZ
     tunnel = ngrok.connect(8000)
     logger.info(f"WebSocket tunnel created: {tunnel.public_url}")
     
