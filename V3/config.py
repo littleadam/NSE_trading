@@ -3,6 +3,7 @@
 MARGIN_PER_LOT = 120000  # Margin required per lot
 LOT_SIZE = 50            # Shares per lot
 POINT_VALUE = 75         # Rupees per point
+HEDGE_LOSS_THRESHOLD = 0.25  # 25%
 
 # Expiry Configuration
 EXPIRY_ROLLOVER_HOUR = 15  # 3 PM
