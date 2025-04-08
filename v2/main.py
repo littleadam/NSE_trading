@@ -9,6 +9,22 @@ from pyngrok import ngrok
 
 logger = configure_logger('main')
 
+def configure_ngrok():
+    """Set up Ngrok tunnel with authentication"""
+    try:
+        conf.get_default().auth_token = settings.NGROK_CONFIG['auth_token']
+        conf.get_default().region = settings.NGROK_CONFIG['region']
+        tunnel = ngrok.connect(
+            settings.NGROK_CONFIG['port'], 
+            proto="http",
+            bind_tls=True
+        )
+        logger.info(f"Ngrok tunnel established at: {tunnel.public_url}")
+        return tunnel
+    except Exception as e:
+        logger.critical(f"Ngrok setup failed: {str(e)}")
+        raise
+        
 def initialize_trading():
     # Start ngrok tunnel
     ngrok config add-authtoken 2vQbN501tKymUQHcvOr1mfXCnTw_GCk3FnKDGhc2R7pHHtRZ
