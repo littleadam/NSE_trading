@@ -217,7 +217,7 @@ class OptionStrategy:
 
     def check_profit_targets(self):
         net_profit = self.position_manager.calculate_unrealized_pnl()
-        if net_profit >= PROFIT_POINTS * NIFTY_LOT_SIZE:  # 75 Rs per point
+        if net_profit >= PROFIT_POINTS * POINT_VALUE:  # 75 Rs per point
             self.log.info(f"Profit target {PROFIT_POINTS} points reached. Closing all.")
             self.close_all_positions()
             return True
