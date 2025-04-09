@@ -8,6 +8,9 @@ from config import *
 
 logging.basicConfig(level=logging.INFO)
 
+def round_strike(strike):
+    return round(strike / STRIKE_ROUNDING_INTERVAL) * STRIKE_ROUNDING_INTERVAL
+
 def is_market_open():
     now = datetime.datetime.now().time()
     start = datetime.datetime.strptime(TRADING_HOURS['start'], "%H:%M").time()
