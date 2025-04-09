@@ -1,7 +1,7 @@
 # test_full_strategy.py
 import datetime
-from V3 import config
-from V3.core import *
+import config
+from core import *
 
 # 1–3 Market Timing
 def test_market_closed_on_holiday(): assert not is_market_open(datetime.datetime(2025, 4, 14), config.HOLIDAYS, config.ALLOW_SATURDAY)
