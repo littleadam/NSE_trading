@@ -11,6 +11,12 @@ WEEKLY_EXPIRY_DAY = 3      # Thursday (0=Monday)
 MONTHLY_EXPIRY_WEEKDAY = 3 # Thursday 
 STRIKE_ROUNDING = 50       # Strike price rounding
 
+STRIKE_ROUNDING_INTERVAL = 50
+HOLIDAYS = ["2025-08-15", "2024-10-02"]
+ALLOW_SATURDAY = False
+PORTFOLIO_LOSS_THRESHOLD = 12.5
+ROLLOVER_TIME = "15:00"
+
 # Existing parameters remain same
 API_KEY = "your_api_key"
 ACCESS_TOKEN = "your_access_token"
