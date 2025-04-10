@@ -196,7 +196,7 @@ class OptionStrategy:
 
             # Calculate new strike and expiry
             new_expiry = get_expiry_date('monthly' if position['tag'] in ['STRADDLE','STRANGLE'] else 'weekly')
-            new_strike = position['strike'] + (position['average_price'] * 0.5)
+            new_strike = round_strike(position['strike'] + (position['average_price'] * 0.5))
 
             # Place new position
             instruments = filter_instruments(self.instrument_manager.nifty_instruments,
