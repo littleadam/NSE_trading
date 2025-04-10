@@ -5,7 +5,7 @@ from positions import PositionManager
 from orders import OrderManager
 from instruments import InstrumentManager
 from utils import is_market_open, get_expiry_date, filter_instruments, calculate_quantity
-from config import *
+from config import config
 import math
 
 class OptionStrategy:
