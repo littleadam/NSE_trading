@@ -101,7 +101,8 @@ class OptionStrategy:
             self.log.error(f"Strangle entry failed: {str(e)}")
 
     def manage_hedges(self):
-        for position in self.position_manager.positions.get('net', []):
+        # Create a copy of the positions list
+        for position in list(self.position_manager.positions.get('net', [])):
             if position['quantity'] >= 0 or position['product'] != 'MIS':
                 continue
 
