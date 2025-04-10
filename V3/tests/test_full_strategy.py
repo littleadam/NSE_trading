@@ -149,7 +149,7 @@ def test_prevent_duplicate_position():
     assert not orders.create_straddle(spot=21500, bias=0)
 
 def test_strike_rounding():
-    assert utils.round_to_strike(21675) == 21700
+    assert utils.round_strike(21675) == 21700  # STRIKE_ROUNDING=50
 
 # === Risk Management ===
 def test_close_on_loss():
