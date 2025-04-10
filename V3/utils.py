@@ -10,6 +10,13 @@ import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 
+import pandas_market_calendars as mcal
+
+def is_trading_day(date):
+    nse = mcal.get_calendar('NSE')
+    trading_days = nse.valid_days(start_date=date, end_date=date)
+    return not trading_days.empty
+    
 def round_strike(strike):
     return round(strike / STRIKE_ROUNDING_INTERVAL) * STRIKE_ROUNDING_INTERVAL
 
