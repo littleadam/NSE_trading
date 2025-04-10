@@ -9,8 +9,6 @@ from config import *
 import math
 
 class OptionStrategy:
-    # strategies.py (updated)
-class OptionStrategy:
     def __init__(self, position_manager=None, order_manager=None, instrument_manager=None):
         self.position_manager = position_manager or PositionManager()
         self.order_manager = order_manager or OrderManager()
