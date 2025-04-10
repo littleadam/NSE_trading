@@ -9,10 +9,12 @@ from config import *
 import math
 
 class OptionStrategy:
-    def __init__(self):
-        self.position_manager = PositionManager()
-        self.order_manager = OrderManager()
-        self.instrument_manager = InstrumentManager()
+    # strategies.py (updated)
+class OptionStrategy:
+    def __init__(self, position_manager=None, order_manager=None, instrument_manager=None):
+        self.position_manager = position_manager or PositionManager()
+        self.order_manager = order_manager or OrderManager()
+        self.instrument_manager = instrument_manager or InstrumentManager()
         self.spot_price = self.instrument_manager.get_spot_price()
         self.log = logging.getLogger(__name__)
 
