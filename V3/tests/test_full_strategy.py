@@ -6,6 +6,11 @@ import config
 import orders
 import utils
 
+# Add to existing imports
+from unittest.mock import Mock, patch, call
+import datetime
+from config import config
+
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -318,3 +323,68 @@ def test_unrealized_pnl():
 
 def test_active_position_check():
     assert isinstance(orders.get_active_positions(), list)
+
+# ==== Config Class Tests ====
+def test_config_instance():
+    assert isinstance(config.config, config.Config)
+
+def test_config_default_values():
+    assert config.config.MARGIN_PER_LOT == 120000
+    assert config.config.STRADDLE_FLAG is True
+
+# ==== Edge Cases for Expiry ====
+def test_monthly_expiry_on_non_business_day():
+    # Mock a non-business day (e.g., Christmas)
+    with patch('utils.get_expiry_date') as mock_expiry:
+        mock_expiry.return_value = datetime.date(2025, 1, 1)
+        expiry = utils.get_expiry_date('monthly', datetime.date(2024, 12, 25))
+        assert expiry.month == 1  # Rolled to January
+
+# ==== Saturday Holiday Logic ====
+def test_saturday_trading_holiday():
+    # Allow Saturday but check for holiday
+    config.config.ALLOW_SATURDAY = True
+    config.config.HOLIDAYS = ["2024-10-05"]
+    assert not utils.is_trading_day("2024-10-05")
+
+# ==== Margin Exhaustion ====
+def test_order_blocked_on_margin_exhaustion():
+    with patch('utils.calculate_quantity', return_value=0):
+        strategy = OptionStrategy()
+        strategy.manage_straddle()
+        assert strategy.order_manager.place_order.call_count == 0
+
+# ==== Negative Average Price Handling ====
+def test_rollover_with_negative_average_price():
+    position = Mock(
+        quantity=-1,
+        average_price=-100,  # Negative price
+        strike=21000,
+        expiry='2024-01-25',
+        tag='STRADDLE'
+    )
+    strategy = OptionStrategy()
+    strategy.position_manager.positions = {'net': [position]}
+    strategy.manage_expiry_rollover()
+    assert "ROLLOVER" in strategy.order_manager.place_order.call_args[1]['tag']
+
+# ==== Instrument Cache Fallback ====
+def test_instrument_cache_fallback():
+    # Simulate missing cache file and mock API response
+    with patch('os.path.exists', return_value=False), \
+         patch('kiteconnect.KiteConnect.instruments') as mock_api:
+        mock_api.return_value = [{
+            'tradingsymbol': 'NIFTY25JAN21500CE',
+            'segment': 'NFO-OPT',
+            'strike': 21500,
+            'expiry': '2024-01-25'
+        }]
+        im = InstrumentManager()
+        assert len(im.nifty_instruments) > 0
+
+# ==== Error Handling ====
+def test_instrument_loading_failure():
+    # Simulate API failure
+    with patch('kiteconnect.KiteConnect.instruments', side_effect=Exception("API Down")):
+        im = InstrumentManager()
+        assert len(im.nifty_instruments) == 0  # Fallback to empty list
