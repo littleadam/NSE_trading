@@ -1,11 +1,123 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pytest
 import config
 import orders
 import utils
+
+from datetime import datetime, timedelta
+from unittest.mock import Mock, patch
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from strategies import OptionStrategy
+from utils import is_market_open, get_expiry_date, round_strike, calculate_quantity
+from orders import OrderManager
+from positions import PositionManager
+from instruments import InstrumentManager
+
+# ==== New Critical Test Cases ==== (Added based on code review)
+def test_monthly_expiry_rollover_logic():
+    # Test expiry date adjustment after 3 PM rollover hour
+    config.EXPIRY_ROLLOVER_HOUR = 15
+    now = datetime(2024, 1, 25, 15, 30)  # Past rollover hour
+    expiry = get_expiry_date('monthly', now.date())
+    assert expiry.month == (now.month + 1) % 12  # Ensure next month's expiry
+
+def test_round_strike_edge_cases():
+    config.STRIKE_ROUNDING_INTERVAL = 50
+    assert round_strike(21249) == 21200  # Floor rounding
+    assert round_strike(21250) == 21250  # Exact multiple
+    assert round_strike(0) == 0  # Zero strike edge case
+
+def test_quantity_calculation_with_insufficient_margin():
+    config.MARGIN_PER_LOT = 120000
+    margin_available = 100000
+    qty = calculate_quantity(margin_available, 0)
+    assert qty == 0  # Should floor to 0 lots
+
+def test_straddle_entry_with_missing_instruments():
+    # Mock empty instrument list
+    with patch.object(InstrumentManager, 'nifty_instruments', {'CE': [], 'PE': []}):
+        strategy = OptionStrategy()
+        strategy.manage_straddle()
+        # Verify no orders placed
+        assert strategy.order_manager.place_order.call_count == 0
+
+def test_hedge_placement_below_threshold():
+    # Mock position with 20% loss (below 25% threshold)
+    position = Mock(
+        average_price=100,
+        last_price=80,
+        quantity=-1,
+        instrument_type='CE'
+    )
+    strategy = OptionStrategy()
+    strategy.position_manager.positions = {'net': [position]}
+    strategy.manage_hedges()
+    assert strategy.order_manager.place_order.call_count == 0  # No hedge placed
+
+# ==== Enhanced Existing Tests ====
+def test_is_market_open_with_holidays():
+    config.HOLIDAYS = ["2024-12-25"]
+    # Mock current time during trading hours but on a holiday
+    with patch('datetime.datetime') as mock_datetime:
+        mock_datetime.now.return_value = datetime(2024, 12, 25, 10, 0)
+        mock_datetime.today.return_value = datetime(2024, 12, 25)
+        assert not is_market_open()  # Should return False
+
+def test_order_retry_with_exponential_backoff():
+    order_mgr = OrderManager()
+    with patch.object(order_mgr.kite, 'place_order') as mock_order:
+        mock_order.side_effect = Exception("API Error")
+        # Test 3 retries
+        order_mgr.place_order('BUY', {}, 100, 'MARKET')
+        assert mock_order.call_count == 2  # Initial attempt + 1 retry
+
+def test_expiry_rollover_with_zero_quantity():
+    # Mock position with 0 quantity (should be skipped)
+    position = Mock(quantity=0, expiry='2024-01-25')
+    strategy = OptionStrategy()
+    strategy.position_manager.positions = {'net': [position]}
+    strategy.manage_expiry_rollover()
+    assert strategy.order_manager.place_order.call_count == 0
+
+# ==== New Edge Case Tests ====
+def test_weekly_expiry_on_rollover_hour_edge():
+    # Test weekly expiry at exactly 3 PM
+    config.EXPIRY_ROLLOVER_HOUR = 15
+    now = datetime(2024, 1, 25, 15, 0)
+    expiry = get_expiry_date('weekly', now.date())
+    # If today is Thursday (WEEKLY_EXPIRY_DAY=3) and time >= 15:00, next week's expiry
+    assert expiry.weekday() == config.WEEKLY_EXPIRY_DAY
+    assert expiry > now.date()
+
+def test_profit_booking_with_multiple_positions():
+    # Mock one profitable and one non-profitable position
+    profitable_pos = Mock(
+        average_price=100,
+        last_price=70,
+        quantity=-1,
+        instrument_type='CE'
+    )
+    non_profitable_pos = Mock(
+        average_price=100,
+        last_price=95,
+        quantity=-1,
+        instrument_type='PE'
+    )
+    strategy = OptionStrategy()
+    strategy.position_manager.positions = {'net': [profitable_pos, non_profitable_pos]}
+    strategy.manage_profit_booking()
+    # Verify only 1 SL update (for profitable position)
+    assert strategy.order_manager.modify_order.call_count == 1
+
+def test_concurrent_order_prevention():
+    # Mock pending orders
+    with patch.object(PositionManager, 'orders', [{'status': 'OPEN'}]):
+        strategy = OptionStrategy()
+        strategy.manage_strategy()
+        assert strategy.order_manager.place_order.call_count == 0  # Block new orders
 # Import other necessary modules from your V3 directory
 
 # === Market Timing & Availability ===
