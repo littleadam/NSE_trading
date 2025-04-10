@@ -5,6 +5,8 @@ import math
 from dateutil.relativedelta import relativedelta
 from kiteconnect import KiteConnect
 from config import *
+import pandas as pd
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,29 +22,11 @@ def is_market_open():
 def get_expiry_date(expiry_type, current_date=None):
     current_date = current_date or datetime.date.today()
     if expiry_type == 'monthly':
-        # Get nth weekday of the month
-        month = current_date.month + EXPIRY_MONTHS
-        year = current_date.year + (month - 1) // 12
-        month = (month - 1) % 12 + 1
-        day = 1
-        last_day = datetime.date(year, month, day) + relativedelta(day=31)
-        
-        # Find specific weekday
-        offset = (last_day.weekday() - MONTHLY_EXPIRY_WEEKDAY) % 7
-        expiry = last_day - datetime.timedelta(days=offset)
-        
-        # Check rollover time
-        if datetime.datetime.now().hour >= EXPIRY_ROLLOVER_HOUR:
-            expiry = expiry + relativedelta(months=1)
-            offset = (expiry.weekday() - MONTHLY_EXPIRY_WEEKDAY) % 7
-            expiry = expiry - datetime.timedelta(days=offset)
-        
-        return expiry
+        # Use pandas to get the last business day of the month
+        return pd.date_range(current_date, periods=1, freq='BME')[0].date()
     elif expiry_type == 'weekly':
+        # Offset to next weekly expiry day
         days_to_expiry = (WEEKLY_EXPIRY_DAY - current_date.weekday()) % 7
-        if days_to_expiry == 0:  # Today is expiry day
-            if datetime.datetime.now().hour >= EXPIRY_ROLLOVER_HOUR:
-                days_to_expiry = 7
         return current_date + datetime.timedelta(days=days_to_expiry)
 
 def calculate_quantity(margin_available, volatility):
