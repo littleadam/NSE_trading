@@ -16,7 +16,20 @@ class OrderManager:
     def place_order(self, transaction_type: str, instrument: Dict, 
                    quantity: int, order_type: str, **kwargs) -> Optional[str]:
         """Place order with retry logic"""
-        log.info(f"Placing {order_type} order: {transaction_type} {instrument['tradingsymbol']} x{quantity}")
+                       def place_order(self, transaction_type, instrument, quantity, order_type, **kwargs):
+    """Added recursive strike adjustment"""
+        adjusted = False
+        while self.position_manager.existing_position_check(
+            instrument['expiry'], 
+            instrument['strike'], 
+            instrument['instrument_type']
+       ):
+            instrument['strike'] -= config.STRIKE_ROUNDING
+            adjusted = True
+    
+        if adjusted:
+            log.warning(f"Adjusted strike to {instrument['strike']} due to existing position")
+            log.info(f"Placing {order_type} order: {transaction_type} {instrument['tradingsymbol']} x{quantity}")
         try:
             params = {
                 'tradingsymbol': instrument['tradingsymbol'],
