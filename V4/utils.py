@@ -32,7 +32,12 @@ def round_strike(strike: float) -> int:
     return result
 
 def is_market_open() -> bool:
-    """Check if market is currently open"""
+    """Check if market is currently open.Updated with special days handling"""
+    now = datetime.datetime.now().date()
+    if str(now) in config.HOLIDAYS:
+        return False
+    if str(now) in config.SPECIAL_DAYS:
+        return datetime.time(9,15) <= now.time() <= datetime.time(15,30)
     log.debug("Checking market status")
     try:
         nse = mcal.get_calendar('NSE')
