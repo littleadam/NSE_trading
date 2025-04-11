@@ -16,8 +16,6 @@ class OrderManager:
     def place_order(self, transaction_type: str, instrument: Dict, 
                    quantity: int, order_type: str, **kwargs) -> Optional[str]:
         """Place order with retry logic"""
-                       def place_order(self, transaction_type, instrument, quantity, order_type, **kwargs):
-    """Added recursive strike adjustment"""
         adjusted = False
         while self.position_manager.existing_position_check(
             instrument['expiry'], 
