@@ -9,6 +9,9 @@ class Config:
     """Central configuration class with validation"""
     
     def __init__(self):
+        self.SPECIAL_DAYS = os.getenv("SPECIAL_DAYS", "2023-12-23,2024-01-20").split(",")
+        self.HOLIDAYS = os.getenv("HOLIDAYS", "2025-10-02,2025-08-15").split(",")
+        self.HEDGE_CLOSING_BUFFER = int(os.getenv("HEDGE_CLOSING_BUFFER", "50"))
         self._validate_credentials()
         self._load_parameters()
         self._validate_values()
