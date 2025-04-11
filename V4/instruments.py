@@ -9,6 +9,15 @@ from typing import Dict, List
 
 log = setup_logger()
 
+def filter_instruments(..., recursive_check=False):
+    """Added recursive strike adjustment"""
+    while True:
+        filtered = [...]  # Existing logic
+        if not recursive_check or not filtered:
+            break
+        strike -= config.STRIKE_ROUNDING
+    return filtered
+
 class InstrumentManager:
     def __init__(self):
         self.instruments = {}
