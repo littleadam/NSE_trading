@@ -76,9 +76,9 @@ def get_expiry_date(expiry_type: str, current_date: datetime.date = None) -> dat
         log.error("Expiry calculation failed", exc_info=True)
         raise
 
-def calculate_quantity(margin_available: float) -> int:
-    """Calculate order quantity based on margin"""
-    log.debug(f"Calculating quantity for margin: {margin_available}")
+def calculate_quantity(margin_available: float, volatility: float = 0) -> int:
+    """Calculate order quantity with volatility placeholder"""
+    log.debug(f"Calculating quantity: Margin={margin_available}, Vol={volatility}")
     try:
         max_lots = max(1, int(margin_available // config.MARGIN_PER_LOT))
         result = max_lots * config.LOT_SIZE
