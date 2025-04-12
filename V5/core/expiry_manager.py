@@ -131,6 +131,37 @@ class ExpiryManager:
         
         self.current_hedges = new_hedges
 
+    # Add to ExpiryManager class
+    def get_hedge_instruments(self, spot_price: float, gap: int) -> List[Dict]:
+        """Get hedge instruments based on spot price and adjacency gap"""
+        weekly_expiry = self._get_nearest_expiry(weekly=True)
+        instruments = []
+    
+        for opt_type in ['CE', 'PE']:
+            strike = get_nearest_strike(spot_price + (gap if opt_type == 'CE' else -gap))
+            symbol = self._get_instrument_symbol('NIFTY', weekly_expiry, strike, opt_type)
+            instruments.append({
+                'tradingsymbol': symbol,
+                'strike': strike,
+                'expiry': weekly_expiry,
+                'option_type': opt_type
+            })
+        return instruments
+
+    def get_instruments(self, strategy_type: str, ce_strike: float, pe_strike: float, far_sell_add: bool) -> List[Dict]:
+        """Get tradingsymbols for strategy execution"""
+        expiry = self._get_nearest_expiry(weekly=not far_sell_add)
+        return [
+            {
+                'tradingsymbol': self._get_instrument_symbol('NIFTY', expiry, ce_strike, 'CE'),
+                'lot_size': LOT_SIZE
+            },
+            {
+                'tradingsymbol': self._get_instrument_symbol('NIFTY', expiry, pe_strike, 'PE'),
+                'lot_size': LOT_SIZE
+            }
+        ]
+    
     def _get_instrument_symbol(self, name, expiry, strike, option_type):
         """Find tradingsymbol for given parameters"""
         expiry_str = expiry.strftime('%Y-%m-%d')
