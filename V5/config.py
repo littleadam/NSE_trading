@@ -41,6 +41,7 @@ class Config:
     ADJACENCY_GAP = int(os.getenv('ADJACENCY_GAP', 100))
     PROFIT_POINTS = int(os.getenv('PROFIT_POINTS', 250))
     SHUTDOWN_LOSS = float(os.getenv('SHUTDOWN_LOSS', 12.5))
+    HEDGE_PREMIUM_THRESHOLD = float(os.getenv('HEDGE_PREMIUM_THRESHOLD', 50.0))
     POSITION_STOPLOSS = int(os.getenv('POSITION_STOPLOSS', 250))  # Points
 
     # Order Parameters
