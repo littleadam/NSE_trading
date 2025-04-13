@@ -36,9 +36,9 @@ class Config:
     # --------------------------
     # Expiry Management
     # --------------------------
-    FAR_MONTH_INDEX = 2        # 0=current, 1=next, 2=far month
+    FAR_MONTH_INDEX = 3        # 0=current, 1=next, 2=far month
     ROLLOVER_DAYS_THRESHOLD = 1 # Days before expiry to roll hedges
-    
+    MARGIN_UTILIZATION_LIMIT = 75
     # --------------------------
     # Operational Config
     # --------------------------
