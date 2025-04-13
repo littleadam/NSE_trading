@@ -190,9 +190,10 @@ class OrderManager:
         try:
             entry_value = position['entry_price'] * position['quantity'] * Config.LOT_SIZE
             current_value = position['last_price'] * position['quantity'] * Config.LOT_SIZE
-            profit_pct = ((current_value - entry_value) / entry_value) * 100
-            
-            if profit_pct >= 25:
+
+            # Replace 25% check with:
+            profit_points = (current_value - entry_value)/Config.LOT_SIZE
+            if profit_points >= Config.PROFIT_POINTS:
                 # Update stop loss
                 self.kite.modify_order(
                     order_id=position['stop_loss_id'],
