@@ -271,9 +271,6 @@ class DataStream:
         """Check if token belongs to a NIFTY derivative"""
         symbol = self._get_symbol(token)
         return symbol.startswith('NIFTY') and symbol != 'NIFTY 50'
-
-    def _is_data_stale(self):
-       return (datetime.now() - self.last_tick_time).seconds > 60
         
     def _get_symbol(self, token: int) -> str:
         """Get tradingsymbol from cached instruments"""
