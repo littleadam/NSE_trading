@@ -125,7 +125,7 @@ class RiskManager:
                 return False
                 
             margin_utilization = (utilised / total_equity) * 100
-            return margin_utilization > 75  # Hard-coded threshold
+            return margin_utilization >  Config.MARGIN_UTILIZATION_LIMIT # Hard-coded threshold
             
         except (KeyError, TypeError, ZeroDivisionError) as e:
             logger.error(f"Margin utilization check failed: {str(e)}")
