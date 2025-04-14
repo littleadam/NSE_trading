@@ -15,17 +15,17 @@ def mock_kite():
 @pytest.fixture
 def mock_instruments():
     return pd.DataFrame([{
-        'tradingsymbol': 'NIFTY23NOV18000CE',
+        'tradingsymbol': 'NIFTY25NOV23000CE',
         'instrument_token': '128563201',
-        'expiry': '2023-11-23',
-        'strike': 18000.0,
+        'expiry': '2025-11-23',
+        'strike': 23000.0,
         'instrument_type': 'CE',
         'name': 'NIFTY'
     }, {
-        'tradingsymbol': 'NIFTY23NOV18000PE',
+        'tradingsymbol': 'NIFTY25NOV23000PE',
         'instrument_token': '128563202',
-        'expiry': '2023-11-23',
-        'strike': 18000.0,
+        'expiry': '2025-11-23',
+        'strike': 23000.0,
         'instrument_type': 'PE',
         'name': 'NIFTY'
     }])
