@@ -45,6 +45,8 @@ class Config:
     CHECK_INTERVAL = 300       # 5 minutes in seconds
     TRADE_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']  # Trading schedule
     RATE_LIMIT_DELAY = 1       # Seconds between order placements
+    AUTO_CLOSE_CONFLICTS = True  # Enable automatic closure of opposing positions
+    POSITION_DIRECTION_CHECK = True  # Enable bidirectional position monitoring
     
     # --------------------------
     # API Credentials
