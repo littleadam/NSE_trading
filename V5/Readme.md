@@ -6,7 +6,7 @@ set -e  # Exit immediately if any command fails
 
 # Clone repository (replace with your actual repo URL)
 git clone https://github.com/littleadam/NSE_trading/new/main/V5
-cd NSE_trading/new/main/V5
+cd NSE_trading/V5
 
 # Create and activate virtual environment
 python3 -m venv .venv
