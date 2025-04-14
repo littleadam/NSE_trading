@@ -232,7 +232,7 @@ class OrderManager:
                 )
                 
                 new_expiry = self._get_nearest_expiry(Config.FAR_SELL_ADD)
-                new_quantity = position['quantity'] * Config.LOT_SIZE
+                new_quantity = Config.LOT_SIZE
                 new_order_ids = self.place_order(
                     strategy_type=position['strategy_type'],
                     strike=position['strike'],
