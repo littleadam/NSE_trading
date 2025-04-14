@@ -20,7 +20,7 @@ class Config:
     # --------------------------
     # Order Parameters
     # --------------------------
-    LOT_SIZE = 50              # Contract multiplier
+    LOT_SIZE = 75              # Contract multiplier
     HEDGE_ONE_LOT = False      # Use single lot for hedges
     BUY_HEDGE = True           # Enable loss-triggered hedging
     WS_TOKEN_LIMIT = 3000      # WebSocket subscription limit
