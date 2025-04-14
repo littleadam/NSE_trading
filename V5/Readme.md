@@ -4,8 +4,8 @@
 !pip install kiteconnect pandas unittest-xml-reporting coverage
 
 # 2. Clone your repository (replace with your actual repo URL)
-!git clone https://github.com/yourusername/your-repo-name.git
-%cd your-repo-name
+!git clone https://github.com/littleadam/NSE_trading/tree/main/V5
+%cd NSE_trading
 
 # 3. Create mock config.py since it wasn't provided in your files
 %%writefile config.py
