@@ -8,6 +8,7 @@ class Config:
         
         # Trading parameters
         self.lot_size = 75  # Number of shares per lot
+        self.strike_gap = 50 # points difference between to adjacent strike prices
         self.profit_percentage = 25  # Percentage profit to trigger stop loss and new orders
         self.stop_loss_percentage = 90  # Percentage of original premium to set stop loss
         self.profit_points = 250  # Points of profit to exit all trades on one side (Rs.18750)
