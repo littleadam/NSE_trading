@@ -9,7 +9,7 @@ def clone_repository():
     """Clone the repository if it doesn't exist"""
     if not os.path.exists('NSE_trading'):
         print("Cloning repository...")
-        subprocess.run(['git', 'clone', 'https://github.com/your-username/NSE_trading.git'], check=True)
+        subprocess.run(['git', 'clone', 'https://github.com/littleadam/NSE_trading.git'], check=True)
         print("Repository cloned successfully.")
     else:
         print("Repository already exists.")
