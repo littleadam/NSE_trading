@@ -78,18 +78,18 @@ class ExpiryManager:
         today = datetime.datetime.now().date()
         
         # Ensure we have enough expiry dates cached
-        if len(self.monthly_expiry_dates) < 3:
+        if len(self.monthly_expiry_dates) < self.config.far_month_expiry:
             self.logger.warning("ExpiryManager: Not enough monthly expiry dates cached")
             self._init_expiry_dates()
             
-            if len(self.monthly_expiry_dates) < 3:
+            if len(self.monthly_expiry_dates) < self.config.far_month_expiry:
                 self.logger.error("ExpiryManager: Still not enough monthly expiry dates after refresh")
                 return None
         
         # Filter future expiries
         future_expiries = [exp for exp in self.monthly_expiry_dates if exp.date() > today]
         
-        if len(future_expiries) < 3:
+        if len(future_expiries) < self.config.far_month_expiry:
             self.logger.warning("ExpiryManager: Less than 3 future monthly expiries available")
             return future_expiries[-1] if future_expiries else None
         
