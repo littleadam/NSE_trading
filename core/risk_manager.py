@@ -161,7 +161,7 @@ class RiskManager:
             self.logger.error(f"RiskManager: Error calculating position profit percentage: {str(e)}")
             return None
     
-    def check_position_profit_threshold(self, position, threshold_percentage=25):
+    def check_position_profit_threshold(self, position):
         """
         Check if a position has reached the profit threshold
         
@@ -177,9 +177,9 @@ class RiskManager:
         if profit_percentage is None:
             return False
         
-        return profit_percentage >= threshold_percentage
+        return profit_percentage >= self.config.profit_percentage
     
-    def check_position_loss_threshold(self, position, threshold_percentage=25):
+    def check_position_loss_threshold(self, position):
         """
         Check if a position has reached the loss threshold
         
@@ -195,7 +195,7 @@ class RiskManager:
         if profit_percentage is None:
             return False
         
-        return profit_percentage <= -threshold_percentage
+        return profit_percentage <= -(self.config.profit_percentage)
     
     def is_trading_allowed(self):
         """
