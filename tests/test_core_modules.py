@@ -598,4 +598,131 @@ class TestRiskManager(unittest.TestCase):
                 }
             ]
         }
-        self.order_manager.get_ltp
+        self.order_manager.get_ltp.return_value = 90  # 10% profit
+        
+        # Call method
+        result = self.risk_manager.check_profit_exit_condition(12345, "CE")
+        
+        # Verify
+        self.assertFalse(result)
+        
+        # Mock positions with profit exceeding threshold
+        self.order_manager.refresh_positions.return_value = {
+            "net": [
+                {
+                    "tradingsymbol": "NIFTY25APR18000CE",
+                    "quantity": -50,
+                    "sell_price": 100,
+                    "instrument_token": 12345
+                }
+            ]
+        }
+        self.order_manager.get_ltp.return_value = 50  # 50% profit, 50 points * 50 quantity = 2500 points
+        
+        # Call method
+        result = self.risk_manager.check_profit_exit_condition(12345, "CE")
+        
+        # Verify
+        self.assertTrue(result)
+    
+    def test_calculate_position_profit_percentage(self):
+        """Test calculating position profit percentage"""
+        # Test short position with profit
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE",
+            "quantity": -50,
+            "sell_price": 100,
+            "instrument_token": 12345
+        }
+        self.order_manager.get_ltp.return_value = 75  # 25% profit
+        
+        # Call method
+        result = self.risk_manager.calculate_position_profit_percentage(position)
+        
+        # Verify
+        self.assertEqual(result, 25.0)
+        
+        # Test long position with profit
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE",
+            "quantity": 50,
+            "buy_price": 100,
+            "instrument_token": 12345
+        }
+        self.order_manager.get_ltp.return_value = 125  # 25% profit
+        
+        # Call method
+        result = self.risk_manager.calculate_position_profit_percentage(position)
+        
+        # Verify
+        self.assertEqual(result, 25.0)
+    
+    def test_is_trading_allowed(self):
+        """Test checking if trading is allowed"""
+        # Mock current time within trading hours on a trading day
+        with patch('datetime.datetime') as mock_datetime:
+            mock_datetime.now.return_value = datetime.datetime(2025, 4, 21, 10, 30)  # Monday 10:30 AM
+            mock_datetime.strftime.return_value = "Monday"
+            
+            # Call method
+            result = self.risk_manager.is_trading_allowed()
+            
+            # Verify
+            self.assertTrue(result)
+        
+        # Mock current time outside trading hours
+        with patch('datetime.datetime') as mock_datetime:
+            mock_datetime.now.return_value = datetime.datetime(2025, 4, 21, 8, 30)  # Monday 8:30 AM
+            mock_datetime.strftime.return_value = "Monday"
+            
+            # Call method
+            result = self.risk_manager.is_trading_allowed()
+            
+            # Verify
+            self.assertFalse(result)
+        
+        # Mock current time on a non-trading day
+        with patch('datetime.datetime') as mock_datetime:
+            mock_datetime.now.return_value = datetime.datetime(2025, 4, 20, 10, 30)  # Sunday 10:30 AM
+            mock_datetime.strftime.return_value = "Sunday"
+            
+            # Call method
+            result = self.risk_manager.is_trading_allowed()
+            
+            # Verify
+            self.assertFalse(result)
+    
+    def test_check_position_loss_threshold(self):
+        """Test checking position loss threshold"""
+        # Test position with loss below threshold
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE",
+            "quantity": 50,
+            "buy_price": 100,
+            "instrument_token": 12345
+        }
+        self.order_manager.get_ltp.return_value = 90  # 10% loss
+        
+        # Call method
+        result = self.risk_manager.check_position_loss_threshold(position)
+        
+        # Verify
+        self.assertFalse(result)
+        
+        # Test position with loss exceeding threshold
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE",
+            "quantity": 50,
+            "buy_price": 100,
+            "instrument_token": 12345
+        }
+        self.order_manager.get_ltp.return_value = 70  # 30% loss
+        
+        # Call method
+        result = self.risk_manager.check_position_loss_threshold(position)
+        
+        # Verify
+        self.assertTrue(result)
+
+if __name__ == "__main__":
+    unittest.main()
