@@ -19,6 +19,7 @@ class Config:
         self.buy_hedge = True  # Whether to place hedge buy orders
         self.hedge_one_lot = True  # If True, buy quantity is one lot; if False, calculate based on sell quantity
         self.far_sell_add = True  # If True, add sell order for same monthly expiry; if False, add next week expiry
+        self.far_month_expiry = 3 # Third expiry from the current date is far month expiry
         
         # Schedule configuration
         self.start_time = "09:15:00"
