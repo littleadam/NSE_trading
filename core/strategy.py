@@ -74,7 +74,7 @@ class Strategy:
         adjusted_spot = self.nifty_spot_price + self.config.bias
         
         # Round to nearest 50 for Nifty
-        atm_strike = round(adjusted_spot / 50) * 50
+        atm_strike = round(adjusted_spot / self.config.strike_gap) * self.config.strike_gap
         
         self.logger.info(f"Strategy: ATM strike calculated as {atm_strike} (spot: {self.nifty_spot_price}, bias: {self.config.bias})")
         return atm_strike
@@ -201,8 +201,8 @@ class Strategy:
         pe_strike = atm_strike - self.config.strangle_distance
         
         # Round to nearest 50 for Nifty
-        ce_strike = round(ce_strike / 50) * 50
-        pe_strike = round(pe_strike / 50) * 50
+        ce_strike = round(ce_strike / self.config.strike_gap) * self.config.strike_gap
+        pe_strike = round(pe_strike / self.config.strike_gap) * self.config.strike_gap
         
         self.logger.info(f"Strategy: Strangle strikes - CE: {ce_strike}, PE: {pe_strike}")
         
@@ -394,8 +394,8 @@ class Strategy:
         pe_hedge_strike = pe_instrument['strike'] - pe_ltp
         
         # Round to nearest 50 for Nifty
-        ce_hedge_strike = round(ce_hedge_strike / 50) * 50
-        pe_hedge_strike = round(pe_hedge_strike / 50) * 50
+        ce_hedge_strike = round(ce_hedge_strike / self.config.strike_gap) * self.config.strike_gap
+        pe_hedge_strike = round(pe_hedge_strike / self.config.strike_gap) * self.config.strike_gap
         
         self.logger.info(f"Strategy: Hedge strikes - CE: {ce_hedge_strike}, PE: {pe_hedge_strike}")
         
@@ -646,7 +646,7 @@ class Strategy:
             hedge_strike = sell_instrument['strike'] - sell_ltp
         
         # Round to nearest 50 for Nifty
-        hedge_strike = round(hedge_strike / 50) * 50
+        hedge_strike = round(hedge_strike / self.config.strike_gap) * self.config.strike_gap
         
         self.logger.info(f"Strategy: Hedge strike for {option_type}: {hedge_strike}")
         
@@ -733,14 +733,14 @@ class Strategy:
             new_strike = strike - self.config.adjacency_gap
         
         # Round to nearest 50 for Nifty
-        new_strike = round(new_strike / 50) * 50
+        new_strike = round(new_strike / self.config.strike_gap) * self.config.strike_gap
         
         self.logger.info(f"Strategy: New strike for sell order: {new_strike} (original: {strike}, gap: {self.config.adjacency_gap})")
         
         # Check if buy order exists at this strike
         if self._buy_order_exists_at_strike(expiry, new_strike, option_type):
             self.logger.warning(f"Strategy: Buy order exists at strike {new_strike}, adjusting strike")
-            new_strike = self._adjust_strike_for_conflict(new_strike, -50 if option_type == "CE" else 50)
+            new_strike = self._adjust_strike_for_conflict(new_strike, -1*self.config.strike_gap if option_type == "CE" else self.config.strike_gap)
         
         # Get new instrument token
         new_token = self.order_manager.get_instrument_token(expiry, new_strike, option_type)
@@ -928,10 +928,10 @@ class Strategy:
         # Define a range of strikes to check
         if option_type == "CE":
             # For CE, check strikes above ATM
-            strikes_to_check = [atm_strike + i * 50 for i in range(20)]
+            strikes_to_check = [atm_strike + i * self.config.strike_gap for i in range(20)]
         else:
             # For PE, check strikes below ATM
-            strikes_to_check = [atm_strike - i * 50 for i in range(20)]
+            strikes_to_check = [atm_strike - i * self.config.strike_gap for i in range(20)]
         
         best_strike = None
         best_diff = float('inf')
@@ -1125,7 +1125,7 @@ class Strategy:
             weighted_strike = sum(p['strike'] * abs(p['quantity']) for p in sell_positions) / total_sell_quantity
             
             # Round to nearest 50 for Nifty
-            new_strike = round(weighted_strike / 50) * 50
+            new_strike = round(weighted_strike / self.config.strike_gap) * self.config.strike_gap
         
         # Get average premium of sell positions
         sell_premiums = []
@@ -1143,7 +1143,7 @@ class Strategy:
             hedge_strike = new_strike - avg_premium
         
         # Round to nearest 50 for Nifty
-        hedge_strike = round(hedge_strike / 50) * 50
+        hedge_strike = round(hedge_strike / self.config.strike_gap) * self.config.strike_gap
         
         self.logger.info(f"Strategy: New hedge strike for {option_type}: {hedge_strike}")
         
