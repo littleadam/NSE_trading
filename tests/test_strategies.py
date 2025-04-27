@@ -507,4 +507,242 @@ class TestStrategies(unittest.TestCase):
         self.order_manager.instruments_cache = {
             "key1": {
                 "instrument_token": 12345, 
-              
+                "strike": 18000, 
+                "instrument_type": "CE",
+                "expiry": datetime.datetime.now() + datetime.timedelta(days=7)
+            }
+        }
+        
+        # Mock methods
+        self.strategy._close_position = MagicMock()
+        self.strategy._add_far_month_buy_order = MagicMock()
+        
+        # Execute
+        self.strategy._check_spot_price_touches_hedge()
+        
+        # Verify calls
+        self.strategy._close_position.assert_called_once()
+        self.strategy._add_far_month_buy_order.assert_called_once()
+    
+    def test_add_far_month_buy_order(self):
+        """Test adding far month buy order"""
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE", 
+            "quantity": 50, 
+            "buy_price": 100, 
+            "instrument_token": 12345
+        }
+        
+        # Mock instruments cache
+        self.order_manager.instruments_cache = {
+            "key1": {
+                "instrument_token": 12345, 
+                "strike": 18000, 
+                "instrument_type": "CE",
+                "expiry": datetime.datetime.now() + datetime.timedelta(days=7)
+            }
+        }
+        
+        # Mock methods
+        self.strategy._find_strike_for_premium = MagicMock(return_value=18500)
+        
+        # Execute
+        self.strategy._add_far_month_buy_order(position)
+        
+        # Verify calls
+        self.expiry_manager.get_far_month_expiry.assert_called_once()
+        self.order_manager.get_ltp.assert_called_once()
+        self.strategy._find_strike_for_premium.assert_called_once()
+        self.order_manager.get_instrument_token.assert_called_once()
+        self.order_manager.place_order.assert_called_once_with(
+            instrument_token=12345,
+            transaction_type="BUY",
+            quantity=100,  # 2x the original quantity
+            order_type="MARKET",
+            tag="far_month_hedge_replacement"
+        )
+    
+    def test_find_strike_for_premium(self):
+        """Test finding strike for target premium"""
+        expiry = datetime.datetime.now() + datetime.timedelta(days=90)
+        option_type = "CE"
+        target_premium = 50
+        
+        # Mock get_atm_strike
+        self.strategy.get_atm_strike = MagicMock(return_value=18000)
+        
+        # Mock get_instrument_token and get_ltp
+        self.order_manager.get_instrument_token.side_effect = lambda exp, strike, opt: 12345 if strike == 18200 else None
+        self.order_manager.get_ltp.side_effect = lambda token: 50 if token == 12345 else None
+        
+        # Execute
+        result = self.strategy._find_strike_for_premium(expiry, option_type, target_premium)
+        
+        # Verify
+        self.assertEqual(result, 18200)
+    
+    def test_close_position(self):
+        """Test closing a position"""
+        # Test closing a buy position
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE", 
+            "quantity": 50, 
+            "buy_price": 100, 
+            "instrument_token": 12345
+        }
+        
+        # Execute
+        self.strategy._close_position(position)
+        
+        # Verify
+        self.order_manager.place_order.assert_called_once_with(
+            instrument_token=12345,
+            transaction_type="SELL",
+            quantity=50,
+            order_type="MARKET",
+            tag="close_position"
+        )
+        
+        # Reset mock
+        self.order_manager.place_order.reset_mock()
+        
+        # Test closing a sell position
+        position = {
+            "tradingsymbol": "NIFTY25APR18000CE", 
+            "quantity": -50, 
+            "sell_price": 100, 
+            "instrument_token": 12345
+        }
+        
+        # Execute
+        self.strategy._close_position(position)
+        
+        # Verify
+        self.order_manager.place_order.assert_called_once_with(
+            instrument_token=12345,
+            transaction_type="BUY",
+            quantity=50,
+            order_type="MARKET",
+            tag="close_position"
+        )
+    
+    def test_exit_all_positions(self):
+        """Test exiting all positions"""
+        # Mock positions
+        self.order_manager.positions = {"net": [
+            {"tradingsymbol": "NIFTY25APR18000CE", "quantity": 50, "instrument_token": 12345},
+            {"tradingsymbol": "NIFTY25APR18000PE", "quantity": -50, "instrument_token": 67890},
+            {"tradingsymbol": "NIFTY25APR19000CE", "quantity": 0, "instrument_token": 54321}  # Should be skipped
+        ]}
+        
+        # Mock method
+        self.strategy._close_position = MagicMock()
+        
+        # Execute
+        self.strategy._exit_all_positions()
+        
+        # Verify
+        self.assertEqual(self.strategy._close_position.call_count, 2)
+    
+    def test_exit_all_positions_by_type(self):
+        """Test exiting all positions by type"""
+        # Mock positions
+        self.order_manager.positions = {"net": [
+            {"tradingsymbol": "NIFTY25APR18000CE", "quantity": 50, "instrument_token": 12345},
+            {"tradingsymbol": "NIFTY25APR18000PE", "quantity": -50, "instrument_token": 67890},
+            {"tradingsymbol": "NIFTY25APR19000CE", "quantity": -25, "instrument_token": 54321}
+        ]}
+        
+        # Mock method
+        self.strategy._close_position = MagicMock()
+        
+        # Execute
+        self.strategy._exit_all_positions_by_type("CE")
+        
+        # Verify
+        self.assertEqual(self.strategy._close_position.call_count, 2)
+    
+    def test_close_all_buy_positions_by_type(self):
+        """Test closing all buy positions by type"""
+        # Mock positions
+        self.order_manager.positions = {"net": [
+            {"tradingsymbol": "NIFTY25APR18000CE", "quantity": 50, "instrument_token": 12345},
+            {"tradingsymbol": "NIFTY25APR18000PE", "quantity": 50, "instrument_token": 67890},
+            {"tradingsymbol": "NIFTY25APR19000CE", "quantity": -25, "instrument_token": 54321}
+        ]}
+        
+        # Mock method
+        self.strategy._close_position = MagicMock()
+        
+        # Execute
+        self.strategy._close_all_buy_positions_by_type("CE")
+        
+        # Verify
+        self.assertEqual(self.strategy._close_position.call_count, 1)
+    
+    def test_replace_expiring_buy_positions(self):
+        """Test replacing expiring buy positions"""
+        # Mock positions
+        positions = [
+            {"tradingsymbol": "NIFTY25APR18000CE", "quantity": 50, "instrument_token": 12345}
+        ]
+        
+        # Mock sell positions
+        self.order_manager.positions = {"net": [
+            {"tradingsymbol": "NIFTY25MAY18000CE", "quantity": -100, "instrument_token": 67890, "strike": 18000}
+        ]}
+        
+        # Mock methods
+        self.strategy._close_position = MagicMock()
+        
+        # Execute
+        self.strategy._replace_expiring_buy_positions("CE", positions)
+        
+        # Verify
+        self.strategy._close_position.assert_called_once()
+        self.expiry_manager.get_next_weekly_expiry.assert_called_once()
+        self.order_manager.get_instrument_token.assert_called_once()
+        self.order_manager.place_order.assert_called_once()
+    
+    def test_buy_order_exists_at_strike(self):
+        """Test checking if buy order exists at strike"""
+        # Mock positions
+        self.order_manager.positions = {"net": [
+            {"tradingsymbol": "NIFTY25APR18000CE", "quantity": 50, "instrument_token": 12345}
+        ]}
+        
+        # Mock instruments cache
+        expiry = datetime.datetime.now() + datetime.timedelta(days=7)
+        self.order_manager.instruments_cache = {
+            "key1": {
+                "instrument_token": 12345, 
+                "strike": 18000, 
+                "instrument_type": "CE",
+                "expiry": expiry
+            }
+        }
+        
+        # Execute - should find the buy order
+        result = self.strategy._buy_order_exists_at_strike(expiry, 18000, "CE")
+        self.assertTrue(result)
+        
+        # Execute - should not find buy order at different strike
+        result = self.strategy._buy_order_exists_at_strike(expiry, 18050, "CE")
+        self.assertFalse(result)
+        
+        # Execute - should not find buy order for different option type
+        result = self.strategy._buy_order_exists_at_strike(expiry, 18000, "PE")
+        self.assertFalse(result)
+    
+    def test_adjust_strike_for_conflict(self):
+        """Test adjusting strike for conflict"""
+        # Test positive adjustment
+        result = self.strategy._adjust_strike_for_conflict(18000, 50)
+        self.assertEqual(result, 18050)
+        
+        # Test negative adjustment
+        result = self.strategy._adjust_strike_for_conflict(18000, -50)
+        self.assertEqual(result, 17950)
+
+if __name__ == "__main__":
+    unittest.main()
