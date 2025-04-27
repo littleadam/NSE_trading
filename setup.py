@@ -1,4 +1,5 @@
 !pip install dotenv
+!pip install schedule
 import os
 import sys
 import subprocess
