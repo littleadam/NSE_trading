@@ -34,7 +34,307 @@ class Strategy:
         self.instruments_to_monitor = []
         
         self.logger.info("Strategy: Strategy module initialized")
+
+         def _execute_trend_based_strategy(self):
+         """
+         Execute trend-based strategy based on the trend configuration
+         """
+         if self.config.trend == "sideways":
+             self.logger.info("Strategy: Trend is sideways, executing normal strategy")
+             if self.config.straddle:
+                 self._execute_short_straddle()
+             elif self.config.strangle:
+                 self._execute_short_strangle()
+             return
+             
+         # Get far month expiry
+         far_month_expiry = self.expiry_manager.get_far_month_expiry()
+         if not far_month_expiry:
+             self.logger.error("Strategy: Could not determine far month expiry")
+             return
+             
+         self.logger.info(f"Strategy: Far month expiry: {far_month_expiry}, trend: {self.config.trend}")
+         
+         # Get ATM strike
+         atm_strike = self.get_atm_strike()
+         if not atm_strike:
+             self.logger.error("Strategy: Could not determine ATM strike")
+             return
+             
+         if self.config.trend == "bullish":
+             # For bullish trend, place PE orders normally and CE orders far away
+             self._execute_trend_based_orders(far_month_expiry, atm_strike, "bullish")
+         elif self.config.trend == "bearish":
+             # For bearish trend, place CE orders normally and PE orders far away
+             self._execute_trend_based_orders(far_month_expiry, atm_strike, "bearish")
     
+     def _execute_trend_based_orders(self, expiry, atm_strike, trend):
+         """
+         Execute trend-based orders
+         
+         Args:
+             expiry: Expiry date
+             atm_strike: ATM strike price
+             trend: Trend direction ("bullish" or "bearish")
+         """
+         self.logger.info(f"Strategy: Placing trend-based orders for {trend} trend")
+         
+         # Calculate strikes based on trend
+         if trend == "bullish":
+             # For bullish trend, place PE orders normally and CE orders far away
+             normal_type = "PE"
+             far_type = "CE"
+             
+             if self.config.straddle:
+                 normal_strike = atm_strike
+             else:  # strangle
+                 normal_strike = atm_strike - self.config.strangle_distance
+                 
+             far_strike = atm_strike + self.config.trend_distance
+         else:  # bearish
+             # For bearish trend, place CE orders normally and PE orders far away
+             normal_type = "CE"
+             far_type = "PE"
+             
+             if self.config.straddle:
+                 normal_strike = atm_strike
+             else:  # strangle
+                 normal_strike = atm_strike + self.config.strangle_distance
+                 
+             far_strike = atm_strike - self.config.trend_distance
+         
+         # Check if normal order already exists
+         normal_exists = self._sell_order_exists_for_type(expiry, normal_type)
+         far_exists = self._sell_order_exists_for_type(expiry, far_type)
+         
+         if normal_exists and far_exists:
+             self.logger.info(f"Strategy: Both {normal_type} and {far_type} orders already exist, skipping")
+             return
+         
+         # Place normal order if it doesn't exist
+         if not normal_exists:
+             self._place_trend_order(expiry, normal_strike, normal_type, "normal")
+         
+         # Place far order if it doesn't exist
+         if not far_exists:
+             self._place_trend_order(expiry, far_strike, far_type, "far")
+         
+         # Check if we need to convert to full straddle/strangle
+         self._check_strategy_conversion(expiry, normal_type, far_type)
+    
+     def _place_trend_order(self, expiry, strike, option_type, order_type):
+         """
+         Place a trend-based order
+         
+         Args:
+             expiry: Expiry date
+             strike: Strike price
+             option_type: Option type (CE or PE)
+             order_type: Order type ("normal" or "far")
+         """
+         # Check if buy order exists at this strike
+         if self._buy_order_exists_at_strike(expiry, strike, option_type):
+             self.logger.warning(f"Strategy: Buy order exists at strike {strike}, adjusting strike")
+             adjustment = -50 if option_type == "CE" else 50
+             strike = self._adjust_strike_for_conflict(strike, adjustment)
+         
+         # Get instrument token
+         token = self.order_manager.get_instrument_token(expiry, strike, option_type)
+         if not token:
+             self.logger.error(f"Strategy: Could not find instrument for {expiry}, {strike} {option_type}")
+             return
+         
+         # Determine tag
+         if self.config.straddle:
+             tag = self.config.tags[f"straddle_{option_type.lower()}"]
+         else:
+             tag = self.config.tags[f"strangle_{option_type.lower()}"]
+             
+         if order_type == "far":
+             tag = self.config.tags[f"trend_{option_type.lower()}"]
+         
+         # Place sell order
+         order_id = self.order_manager.place_order(
+             instrument_token=token,
+             transaction_type="SELL",
+             quantity=self.config.lot_size,
+             order_type="MARKET",
+             tag=tag
+         )
+         
+         if order_id:
+             self.logger.info(f"Strategy: Trend {order_type} order placed successfully for {option_type}, order_id: {order_id}")
+             
+             # Place hedge buy order
+             if self.config.buy_hedge:
+                 self._place_single_hedge_buy_order(token, option_type)
+         else:
+             self.logger.error(f"Strategy: Failed to place trend {order_type} order for {option_type}")
+    
+     def _check_strategy_conversion(self, expiry, normal_type, far_type):
+         """
+         Check if we need to convert to full straddle/strangle
+         
+         Args:
+             expiry: Expiry date
+             normal_type: Normal option type (CE or PE)
+             far_type: Far option type (CE or PE)
+         """
+         # Get positions
+         positions = self.order_manager.positions.get('net', [])
+         
+         # Find far order
+         far_position = None
+         for position in positions:
+             # Skip positions with zero or positive quantity
+             if position['quantity'] >= 0:
+                 continue
+                 
+             # Find instrument details
+             instrument = None
+             for instr in self.order_manager.instruments_cache.values():
+                 if instr['instrument_token'] == position['instrument_token']:
+                     instrument = instr
+                     break
+                     
+             if not instrument:
+                 continue
+                 
+             # Check if this is the far order
+             if (instrument['expiry'] == expiry and 
+                 instrument['instrument_type'] == far_type and
+                 self._is_trend_order(position)):
+                 far_position = position
+                 break
+         
+         if not far_position:
+             return
+             
+         # Check if premium has increased by threshold
+         current_premium = self.order_manager.get_ltp(far_position['instrument_token'])
+         if not current_premium:
+             return
+             
+         original_premium = far_position['sell_price']
+         premium_change = ((current_premium - original_premium) / original_premium) * 100
+         
+         if premium_change >= self.config.strategy_conversion_threshold:
+             self.logger.info(f"Strategy: Far {far_type} premium increased by {premium_change:.2f}%, converting strategy")
+             
+             # Close far order and its hedge
+             self._close_position(far_position)
+             self._close_hedge_for_position(far_position)
+             
+             # Place normal order at appropriate strike
+             atm_strike = self.get_atm_strike()
+             if not atm_strike:
+                 return
+                 
+             if self.config.straddle:
+                 strike = atm_strike
+             elif far_type == "CE":
+                 strike = atm_strike + self.config.strangle_distance
+             else:  # PE
+                 strike = atm_strike - self.config.strangle_distance
+                 
+             self._place_trend_order(expiry, strike, far_type, "normal")
+     
+     def _is_trend_order(self, position):
+         """
+         Check if a position is a trend order
+         
+         Args:
+             position: Position dictionary
+             
+         Returns:
+             True if position is a trend order, False otherwise
+         """
+         # Check order tags
+         order_id = position.get('order_id')
+         if not order_id:
+             return False
+             
+         order = self.order_manager.orders.get(order_id)
+         if not order:
+             return False
+             
+         tag = order.get('tag', '')
+         return tag in [self.config.tags['trend_ce'], self.config.tags['trend_pe']]
+    
+     def _close_hedge_for_position(self, position):
+         """
+         Close hedge buy orders for a position
+         
+         Args:
+             position: Position dictionary
+         """
+         # Find instrument details
+         instrument = None
+         for instr in self.order_manager.instruments_cache.values():
+             if instr['instrument_token'] == position['instrument_token']:
+                 instrument = instr
+                 break
+                 
+         if not instrument:
+             return
+             
+         # Find hedge positions
+         positions = self.order_manager.positions.get('net', [])
+         for hedge_position in positions:
+             # Skip positions with zero or negative quantity
+             if hedge_position['quantity'] <= 0:
+                 continue
+                 
+             # Find hedge instrument details
+             hedge_instrument = None
+             for instr in self.order_manager.instruments_cache.values():
+                 if instr['instrument_token'] == hedge_position['instrument_token']:
+                     hedge_instrument = instr
+                     break
+                     
+             if not hedge_instrument:
+                 continue
+                 
+             # Check if this is a hedge for our position
+             if hedge_instrument['instrument_type'] == instrument['instrument_type']:
+                 self._close_position(hedge_position)
+                 break
+    
+     def _sell_order_exists_for_type(self, expiry, option_type):
+         """
+         Check if a sell order exists for a specific option type
+         
+         Args:
+             expiry: Expiry date
+             option_type: Option type (CE or PE)
+             
+         Returns:
+             True if sell order exists, False otherwise
+         """
+         positions = self.order_manager.positions.get('net', [])
+         
+         for position in positions:
+             # Skip positions with zero or positive quantity
+             if position['quantity'] >= 0:
+                 continue
+                 
+             # Find instrument details
+             instrument = None
+             for instr in self.order_manager.instruments_cache.values():
+                 if instr['instrument_token'] == position['instrument_token']:
+                     instrument = instr
+                     break
+                     
+             if not instrument:
+                 continue
+                 
+             # Check if this is a sell order for the specified type and expiry
+             if (instrument['expiry'] == expiry and 
+                 instrument['instrument_type'] == option_type):
+                 return True
+                 
+         return False
+
     def update_spot_price(self):
         """
         Update Nifty spot price
@@ -122,15 +422,8 @@ class Strategy:
             self.logger.info("Strategy: Profit exit condition met for PE options, exiting all PE positions")
             self._exit_all_positions_by_type("PE")
         
-        # Execute main strategy logic
-        if self.config.straddle:
-            self.logger.info("Strategy: Executing short straddle strategy")
-            self._execute_short_straddle()
-        elif self.config.strangle:
-            self.logger.info("Strategy: Executing short strangle strategy")
-            self._execute_short_strangle()
-        else:
-            self.logger.warning("Strategy: Neither straddle nor strangle strategy is enabled")
+        # Execute trend-based strategy
+        self._execute_trend_based_strategy()
         
         # Check for profitable legs and add stop loss
         self._manage_profitable_legs()
