@@ -65,7 +65,18 @@ class Dashboard:
         else:
             self.config.straddle = False
             self.config.strangle = True
+
+        # Trend selection
+        st.sidebar.subheader("Trend")
+        trend = st.sidebar.radio(
+            "Select Trend",
+            ["Sideways", "Bullish", "Bearish"],
+            index=0 if self.config.trend == "sideways" else (1 if self.config.trend == "bullish" else 2)
+        )
         
+        # Update config based on selection
+        self.config.trend = trend.lower()
+
         # Strategy parameters
         st.sidebar.subheader("Parameters")
         self.config.bias = st.sidebar.slider("Strike Bias", -100, 100, self.config.bias, 5)
@@ -80,7 +91,15 @@ class Dashboard:
         if st.sidebar.button("Run Strategy Once"):
             self.strategy.execute()
             st.experimental_rerun()
-        
+
+        if st.sidebar.button("Close All Trades"):
+            self.strategy._exit_all_positions()
+            st.experimental_rerun()
+       
+        if st.sidebar.button("Stop Application"):
+            st.sidebar.error("Application stopped. Restart to continue.")
+            sys.exit(0)
+
         # Status
         st.sidebar.subheader("Status")
         market_status = "Open" if self.risk_manager.is_trading_allowed() else "Closed"
@@ -114,6 +133,12 @@ class Dashboard:
         
         # Trade history
         self._render_trade_history()
+
+        # Error log
+        self._render_error_log()
+        
+        # Log file viewer
+        self._render_log_viewer()
     
     def _render_summary_metrics(self):
         """
@@ -382,6 +407,68 @@ class Dashboard:
                 return 0
             
             return ((sell_price - last_price) / sell_price) * 100
+
+     def _render_error_log(self):
+         """
+         Render error log
+         """
+         st.subheader("Recent Errors")
+         
+         try:
+             # Read error log file
+             error_log_path = os.path.join("logs", self.config.error_log_file)
+             if not os.path.exists(error_log_path):
+                 st.info("No error log file found")
+                 return
+                 
+             # Read last 10 lines
+             with open(error_log_path, 'r') as file:
+                 lines = file.readlines()
+                 last_lines = lines[-10:] if len(lines) > 10 else lines
+                 
+             if not last_lines:
+                 st.info("No errors found")
+                 return
+                 
+             # Display errors
+             for line in last_lines:
+                 st.error(line.strip())
+         except Exception as e:
+             st.error(f"Error reading error log: {str(e)}")
+    
+     def _render_log_viewer(self):
+         """
+         Render log file viewer
+         """
+         st.subheader("Log Viewer")
+         
+         # Select log file
+         log_files = ["nse_trading.log", "error.log"]
+         selected_log = st.selectbox("Select Log File", log_files)
+         
+         # Number of lines to show
+         num_lines = st.slider("Number of Lines", 10, 100, 50)
+         
+         try:
+             # Read log file
+             log_path = os.path.join("logs", selected_log)
+             if not os.path.exists(log_path):
+                 st.info(f"Log file {selected_log} not found")
+                 return
+                 
+             # Read last N lines
+             with open(log_path, 'r') as file:
+                 lines = file.readlines()
+                 last_lines = lines[-num_lines:] if len(lines) > num_lines else lines
+                 
+             if not last_lines:
+                 st.info("Log file is empty")
+                 return
+                 
+             # Display log
+             st.text_area("Log Content", "".join(last_lines), height=300)
+         except Exception as e:
+             st.error(f"Error reading log file: {str(e)}")
 
 def run_dashboard(kite, logger, config, order_manager, risk_manager, strategy):
     """
