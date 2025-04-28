@@ -1,140 +1,245 @@
 import logging
 import os
 import datetime
+import sys
+import inspect
+from functools import wraps
 
 class Logger:
-    def __init__(self, config):
+    def __init__(self, log_level=None, log_file=None, error_log_file=None):
         """
-        Initialize logger with configuration
+        Initialize Logger with log level and log file
         
         Args:
-            config: Configuration instance
+            log_level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            log_file: Log file path
+            error_log_file: Error log file path
         """
-        self.config = config
-        
         # Create logs directory if it doesn't exist
-        os.makedirs(os.path.dirname(os.path.abspath(__file__)) + '/../logs', exist_ok=True)
+        os.makedirs('logs', exist_ok=True)
         
-        # Set up logger
+        # Set default log level and log file
+        self.log_level = log_level or "INFO"
+        self.log_file = log_file or "logs/nse_trading.log"
+        self.error_log_file = error_log_file or "logs/error.log"
+        
+        # Configure logger
         self.logger = logging.getLogger('nse_trading')
-        self.logger.setLevel(getattr(logging, self.config.log_level))
+        self.logger.setLevel(getattr(logging, self.log_level))
         
         # Clear existing handlers
-        if self.logger.handlers:
-            self.logger.handlers.clear()
-        
-        # Create file handler
-        log_file = os.path.dirname(os.path.abspath(__file__)) + '/../logs/' + self.config.log_file
-        file_handler = logging.FileHandler(log_file)
-        
-        # Create console handler
-        console_handler = logging.StreamHandler()
+        self.logger.handlers = []
         
         # Create formatter
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # Create file handler
+        file_handler = logging.FileHandler(self.log_file)
+        file_handler.setLevel(getattr(logging, self.log_level))
         file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
-        
-        # Add handlers to logger
         self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
         
-        self.logger.info(f"Logger: Initialized with log level {self.config.log_level}")
+        # Create error file handler
+        error_file_handler = logging.FileHandler(self.error_log_file)
+        error_file_handler.setLevel(logging.ERROR)
+        error_file_handler.setFormatter(formatter)
+        self.logger.addHandler(error_file_handler)
+        
+        # Create console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(getattr(logging, self.log_level))
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
     
     def get_logger(self):
         """
-        Get the logger instance
+        Get logger instance
         
         Returns:
             Logger instance
         """
         return self.logger
     
-    def log_trade(self, order_id, instrument, transaction_type, quantity, price, status):
+    def log_function_call(self, func):
         """
-        Log a trade with detailed information
+        Decorator to log function calls with arguments and return values
         
         Args:
-            order_id: Order ID
-            instrument: Instrument details
-            transaction_type: BUY or SELL
-            quantity: Order quantity
-            price: Order price
-            status: Order status
+            func: Function to decorate
+            
+        Returns:
+            Decorated function
         """
-        self.logger.info(f"TRADE: {order_id} | {instrument} | {transaction_type} | {quantity} | {price} | {status}")
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            func_name = func.__name__
+            module_name = func.__module__
+            
+            # Get calling function and line number
+            caller_frame = inspect.currentframe().f_back
+            caller_info = ""
+            if caller_frame:
+                caller_info = f" (called from {caller_frame.f_code.co_name}:{caller_frame.f_lineno})"
+            
+            # Log function call with arguments
+            args_str = ', '.join([repr(arg) for arg in args[1:]])  # Skip self
+            kwargs_str = ', '.join([f"{k}={repr(v)}" for k, v in kwargs.items()])
+            params = []
+            if args_str:
+                params.append(args_str)
+            if kwargs_str:
+                params.append(kwargs_str)
+            params_str = ', '.join(params)
+            
+            self.logger.info(f"{module_name}.{func_name}({params_str}) called{caller_info}")
+            
+            try:
+                # Call the function
+                result = func(*args, **kwargs)
+                
+                # Log return value
+                self.logger.info(f"{module_name}.{func_name} returned: {repr(result)}")
+                
+                return result
+            except Exception as e:
+                # Log exception
+                self.logger.error(f"{module_name}.{func_name} raised: {repr(e)}")
+                raise
+        
+        return wrapper
     
-    def log_strategy_decision(self, decision, reason):
+    def log_method(self, level=logging.INFO):
         """
-        Log a strategy decision
+        Decorator to log method calls with arguments and return values at specified level
         
         Args:
-            decision: Decision made
-            reason: Reason for the decision
+            level: Logging level
+            
+        Returns:
+            Decorator function
         """
-        self.logger.info(f"STRATEGY: {decision} | {reason}")
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                func_name = func.__name__
+                class_name = args[0].__class__.__name__ if args else ""
+                
+                # Get calling function and line number
+                caller_frame = inspect.currentframe().f_back
+                caller_info = ""
+                if caller_frame:
+                    caller_info = f" (called from {caller_frame.f_code.co_name}:{caller_frame.f_lineno})"
+                
+                # Log function call with arguments
+                args_str = ', '.join([repr(arg) for arg in args[1:]])  # Skip self
+                kwargs_str = ', '.join([f"{k}={repr(v)}" for k, v in kwargs.items()])
+                params = []
+                if args_str:
+                    params.append(args_str)
+                if kwargs_str:
+                    params.append(kwargs_str)
+                params_str = ', '.join(params)
+                
+                self.logger.log(level, f"{class_name}.{func_name}({params_str}) called{caller_info}")
+                
+                try:
+                    # Call the function
+                    result = func(*args, **kwargs)
+                    
+                    # Log return value
+                    self.logger.log(level, f"{class_name}.{func_name} returned: {repr(result)}")
+                    
+                    return result
+                except Exception as e:
+                    # Log exception
+                    self.logger.error(f"{class_name}.{func_name} raised: {repr(e)}")
+                    raise
+            
+            return wrapper
+        
+        return decorator
     
-    def log_position_update(self, position):
+    def rotate_logs(self, max_size_mb=10, backup_count=5):
         """
-        Log a position update
+        Rotate log files when they reach a certain size
         
         Args:
-            position: Position details
+            max_size_mb: Maximum size of log file in MB
+            backup_count: Number of backup files to keep
         """
-        self.logger.info(f"POSITION: {position['tradingsymbol']} | Qty: {position['quantity']} | P&L: {position['pnl']}")
+        # Check main log file size
+        if os.path.exists(self.log_file) and os.path.getsize(self.log_file) > max_size_mb * 1024 * 1024:
+            self._rotate_log_file(self.log_file, backup_count)
+        
+        # Check error log file size
+        if os.path.exists(self.error_log_file) and os.path.getsize(self.error_log_file) > max_size_mb * 1024 * 1024:
+            self._rotate_log_file(self.error_log_file, backup_count)
     
-    def log_error(self, module, error):
+    def _rotate_log_file(self, log_file, backup_count):
         """
-        Log an error
+        Rotate a specific log file
         
         Args:
-            module: Module where error occurred
-            error: Error details
+            log_file: Log file path
+            backup_count: Number of backup files to keep
         """
-        self.logger.error(f"ERROR: {module} | {error}")
+        # Remove oldest backup if it exists
+        oldest_backup = f"{log_file}.{backup_count}"
+        if os.path.exists(oldest_backup):
+            os.remove(oldest_backup)
+        
+        # Shift existing backups
+        for i in range(backup_count - 1, 0, -1):
+            backup = f"{log_file}.{i}"
+            new_backup = f"{log_file}.{i + 1}"
+            if os.path.exists(backup):
+                os.rename(backup, new_backup)
+        
+        # Rename current log file to .1
+        if os.path.exists(log_file):
+            os.rename(log_file, f"{log_file}.1")
+        
+        # Create new log file
+        open(log_file, 'w').close()
+        
+        # Reconfigure handlers
+        self.__init__(self.log_level, self.log_file, self.error_log_file)
     
-    def log_warning(self, module, warning):
+    def archive_old_logs(self, days=30):
         """
-        Log a warning
+        Archive log files older than specified days
         
         Args:
-            module: Module where warning occurred
-            warning: Warning details
+            days: Number of days to keep logs
         """
-        self.logger.warning(f"WARNING: {module} | {warning}")
-    
-    def log_info(self, module, info):
-        """
-        Log information
+        # Create archive directory if it doesn't exist
+        archive_dir = os.path.join('logs', 'archive')
+        os.makedirs(archive_dir, exist_ok=True)
         
-        Args:
-            module: Module providing information
-            info: Information details
-        """
-        self.logger.info(f"INFO: {module} | {info}")
-    
-    def log_debug(self, module, debug):
-        """
-        Log debug information
+        # Get current time
+        now = datetime.datetime.now()
         
-        Args:
-            module: Module providing debug information
-            debug: Debug details
-        """
-        self.logger.debug(f"DEBUG: {module} | {debug}")
+        # Check all files in logs directory
+        for filename in os.listdir('logs'):
+            if filename.startswith('.') or filename == 'archive':
+                continue
+                
+            file_path = os.path.join('logs', filename)
+            
+            # Check if file is older than specified days
+            file_time = datetime.datetime.fromtimestamp(os.path.getmtime(file_path))
+            if (now - file_time).days > days:
+                # Archive file
+                archive_path = os.path.join(archive_dir, f"{filename}.{file_time.strftime('%Y%m%d')}")
+                os.rename(file_path, archive_path)
+                self.logger.info(f"Archived log file: {filename} to {archive_path}")
+
+# Function to get a logger instance with default configuration
+def get_default_logger():
+    """
+    Get a logger instance with default configuration
     
-    def log_execution_start(self):
-        """
-        Log the start of strategy execution
-        """
-        self.logger.info("=" * 80)
-        self.logger.info(f"EXECUTION START: {datetime.datetime.now()}")
-        self.logger.info("=" * 80)
-    
-    def log_execution_end(self):
-        """
-        Log the end of strategy execution
-        """
-        self.logger.info("=" * 80)
-        self.logger.info(f"EXECUTION END: {datetime.datetime.now()}")
-        self.logger.info("=" * 80)
+    Returns:
+        Logger instance
+    """
+    return Logger().get_logger()
