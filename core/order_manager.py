@@ -28,30 +28,146 @@ class OrderManager:
         self._init_instruments_cache()
         self.logger.info("OrderManager: Order manager initialized")
     
-    def _init_instruments_cache(self):
-        """
-        Initialize instruments cache
-        """
-        try:
-            self.logger.info("OrderManager: Initializing instruments cache")
-            all_instruments = self.kite.instruments("NFO")
-            
-            # Filter for NIFTY options
-            nifty_options = [i for i in all_instruments if i['name'] == 'NIFTY']
-            
-            # Create a lookup dictionary
-            for instrument in nifty_options:
-                key = self._create_instrument_key(
-                    instrument['expiry'],
-                    instrument['strike'],
-                    instrument['instrument_type']
-                )
-                self.instruments_cache[key] = instrument
-            
-            self.logger.info(f"OrderManager: Cached {len(self.instruments_cache)} NIFTY options instruments")
-        except Exception as e:
-            self.logger.error(f"OrderManager: Failed to initialize instruments cache: {str(e)}")
-            raise
+         def download_instruments(self):
+         """
+         Download instruments data and save to CSV
+         
+         Returns:
+             True if successful, False otherwise
+         """
+         try:
+             self.logger.info("OrderManager: Downloading instruments data")
+             
+             # Create directory if it doesn't exist
+             os.makedirs('data', exist_ok=True)
+             
+             # Download instruments
+             instruments = self.kite.instruments("NFO")
+             
+             # Save to CSV
+             df = pd.DataFrame(instruments)
+             df.to_csv('data/instruments.csv', index=False)
+             
+             self.logger.info(f"OrderManager: Downloaded {len(instruments)} instruments")
+             return True
+         except Exception as e:
+             self.logger.error(f"OrderManager: Failed to download instruments: {str(e)}")
+             return False
+    
+     def load_instruments_from_csv(self):
+         """
+         Load instruments from CSV file
+         
+         Returns:
+             List of instruments or None if failed
+         """
+         try:
+             csv_path = 'data/instruments.csv'
+             if not os.path.exists(csv_path):
+                 self.logger.warning("OrderManager: Instruments CSV not found, downloading")
+                 if not self.download_instruments():
+                     return None
+             
+             # Load CSV
+             df = pd.read_csv(csv_path)
+             
+             # Convert to list of dictionaries
+             instruments = df.to_dict('records')
+             
+             # Convert expiry strings to datetime
+             for instrument in instruments:
+                 if 'expiry' in instrument and instrument['expiry']:
+                     try:
+                         instrument['expiry'] = pd.to_datetime(instrument['expiry']).to_pydatetime()
+                     except:
+                         pass
+             
+             self.logger.info(f"OrderManager: Loaded {len(instruments)} instruments from CSV")
+             return instruments
+         except Exception as e:
+             self.logger.error(f"OrderManager: Failed to load instruments from CSV: {str(e)}")
+             return None
+    
+     def get_lot_size(self, instrument_token):
+         """
+         Get lot size for an instrument
+         
+         Args:
+             instrument_token: Instrument token
+             
+         Returns:
+             Lot size or None if not found
+         """
+         try:
+             # Find instrument in cache
+             for instrument in self.instruments_cache.values():
+                 if instrument['instrument_token'] == instrument_token:
+                     lot_size = instrument.get('lot_size')
+                     if lot_size:
+                         return lot_size
+             
+             # If not found in cache, use default
+             return self.config.lot_size
+         except Exception as e:
+             self.logger.error(f"OrderManager: Failed to get lot size: {str(e)}")
+             return self.config.lot_size
+    
+     def _init_instruments_cache(self):
+         """
+         Initialize instruments cache
+         """
+         try:
+             self.logger.info("OrderManager: Initializing instruments cache")
+             
+             # Try to load from CSV first
+             instruments = self.load_instruments_from_csv()
+             
+             # If CSV loading failed, fetch from API
+             if not instruments:
+                 instruments = self._api_call_with_retry(self.kite.instruments, "NFO")
+             
+             if not instruments:
+                 self.logger.error("OrderManager: Failed to initialize instruments cache")
+                 return
+             
+             # Filter for NIFTY options
+             nifty_instruments = [i for i in instruments if i['name'] == 'NIFTY']
+             
+             # Build cache
+             self.instruments_cache = {}
+             for instrument in nifty_instruments:
+                 if 'expiry' in instrument and instrument['strike'] and instrument['instrument_type'] in ['CE', 'PE']:
+                     key = f"{instrument['expiry'].strftime('%Y-%m-%d')}_{instrument['strike']}_{instrument['instrument_type']}"
+                     self.instruments_cache[key] = instrument
+             
+             self.logger.info(f"OrderManager: Initialized instruments cache with {len(self.instruments_cache)} instruments")
+         except Exception as e:
+             self.logger.error(f"OrderManager: Error initializing instruments cache: {str(e)}")
+    
+     def _api_call_with_retry(self, func, *args, **kwargs):
+         """
+         Make API call with retry
+         
+         Args:
+             func: Function to call
+             *args: Positional arguments
+             **kwargs: Keyword arguments
+             
+         Returns:
+             Result of function call or None if all retries failed
+         """
+         retries = 0
+         while retries < self.config.max_retries:
+             try:
+                 return func(*args, **kwargs)
+             except Exception as e:
+                 retries += 1
+                 self.logger.warning(f"OrderManager: API call failed (attempt {retries}/{self.config.max_retries}): {str(e)}")
+                 if retries < self.config.max_retries:
+                     time.sleep(self.config.retry_delay)
+                 else:
+                     self.logger.error(f"OrderManager: All retries failed for API call: {str(e)}")
+                     return None
     
     def _create_instrument_key(self, expiry, strike, instrument_type):
         """
