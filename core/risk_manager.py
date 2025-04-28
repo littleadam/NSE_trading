@@ -29,6 +29,55 @@ class RiskManager:
         self.logger.info(f"RiskManager: Shutdown loss set at {self.shutdown_loss_percentage}% (₹{self.shutdown_loss_amount:.2f})")
         self.logger.info("RiskManager: Risk manager initialized")
     
+    def get_monthly_pnl(self):
+         """
+         Get PnL for the current month
+         
+         Returns:
+             Dictionary with realized and unrealized PnL
+         """
+         try:
+             # Get current month start date
+             today = datetime.datetime.now()
+             month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+             
+             # Get positions
+             positions = self.order_manager.refresh_positions()
+             
+             # Calculate unrealized PnL
+             unrealized_pnl = 0
+             for position in positions.get('net', []):
+                 unrealized_pnl += position.get('unrealised_pnl', 0)
+             
+             # Calculate realized PnL
+             realized_pnl = 0
+             for position in positions.get('net', []):
+                 realized_pnl += position.get('realised_pnl', 0)
+             
+             # Get completed trades for the month
+             orders = self.order_manager.refresh_orders()
+             monthly_orders = []
+             for order in orders:
+                 if 'order_timestamp' in order:
+                     order_time = pd.to_datetime(order['order_timestamp'])
+                     if order_time >= month_start and order['status'] == 'COMPLETE':
+                         monthly_orders.append(order)
+             
+             return {
+                 'unrealized_pnl': unrealized_pnl,
+                 'realized_pnl': realized_pnl,
+                 'total_pnl': unrealized_pnl + realized_pnl,
+                 'monthly_orders': monthly_orders
+             }
+         except Exception as e:
+             self.logger.error(f"RiskManager: Error calculating monthly PnL: {str(e)}")
+             return {
+                 'unrealized_pnl': 0,
+                 'realized_pnl': 0,
+                 'total_pnl': 0,
+                 'monthly_orders': []
+             }
+             
     def check_shutdown_condition(self):
         """
         Check if the shutdown condition is met (unrealized loss exceeds threshold)
@@ -39,24 +88,22 @@ class RiskManager:
         try:
             self.logger.info("RiskManager: Checking shutdown condition")
             
-            # Refresh positions
-            positions = self.order_manager.refresh_positions()
-            if not positions:
-                self.logger.warning("RiskManager: Could not refresh positions, skipping shutdown check")
-                return False
-            
-            # Calculate unrealized PnL
-            total_pnl = 0
-            for position in positions.get('net', []):
-                total_pnl += position.get('unrealised_pnl', 0)
+            # Get monthly PnL
+            monthly_pnl = self.get_monthly_pnl()
+            total_pnl = monthly_pnl['total_pnl']
             
             self.logger.info(f"RiskManager: Current unrealized PnL: ₹{total_pnl:.2f}")
             
-            # Check if loss exceeds threshold
-            if total_pnl < 0 and abs(total_pnl) > self.shutdown_loss_amount:
-                self.logger.warning(f"RiskManager: Shutdown condition met! Unrealized loss (₹{abs(total_pnl):.2f}) exceeds threshold (₹{self.shutdown_loss_amount:.2f})")
+            # Calculate shutdown threshold
+            shutdown_threshold = -(self.config.capital_allocated * self.config.shutdown_loss / 100)
+
+            self.logger.info(f"RiskManager: Checking shutdown condition - Monthly PnL: {total_pnl}, Threshold: {shutdown_threshold}")
+
+            # Check if monthly PnL exceeds shutdown threshold
+            if total_pnl <= shutdown_threshold:
+                self.logger.warning(f"RiskManager: Shutdown condition met - Monthly PnL ({total_pnl}) exceeds threshold ({shutdown_threshold})")
                 return True
-            
+                
             self.logger.info("RiskManager: Shutdown condition not met")
             return False
         except Exception as e:
@@ -161,7 +208,7 @@ class RiskManager:
             self.logger.error(f"RiskManager: Error calculating position profit percentage: {str(e)}")
             return None
     
-    def check_position_profit_threshold(self, position):
+    def check_position_profit_threshold(self, position, threshold_percentage=25):
         """
         Check if a position has reached the profit threshold
         
@@ -177,9 +224,9 @@ class RiskManager:
         if profit_percentage is None:
             return False
         
-        return profit_percentage >= self.config.profit_percentage
+        return profit_percentage >= threshold_percentage
     
-    def check_position_loss_threshold(self, position):
+    def check_position_loss_threshold(self, position, threshold_percentage=25):
         """
         Check if a position has reached the loss threshold
         
@@ -195,7 +242,7 @@ class RiskManager:
         if profit_percentage is None:
             return False
         
-        return profit_percentage <= -(self.config.profit_percentage)
+        return profit_percentage <= -threshold_percentage
     
     def is_trading_allowed(self):
         """
