@@ -15,6 +15,7 @@ from core.expiry_manager import ExpiryManager
 from core.risk_manager import RiskManager
 from core.streaming import StreamingService
 from utils.logger import Logger
+from utils.notification import NotificationManager
 from config import Config
 
 class TestStrategies(unittest.TestCase):
@@ -37,6 +38,25 @@ class TestStrategies(unittest.TestCase):
         self.config.far_sell_add = True
         self.config.strangle_distance = 1000
         self.config.adjacency_gap = 200
+        self.config.trend = "sideways"
+        self.config.trend_distance = 2000
+        self.config.strategy_conversion_threshold = 5
+        self.config.tags = {
+            "straddle_ce": "short_straddle_ce",
+            "straddle_pe": "short_straddle_pe",
+            "strangle_ce": "short_strangle_ce",
+            "strangle_pe": "short_strangle_pe",
+            "hedge_ce": "hedge_buy_ce",
+            "hedge_pe": "hedge_buy_pe",
+            "trend_ce": "trend_ce",
+            "trend_pe": "trend_pe",
+            "stop_loss": "stop_loss",
+            "additional_sell": "additional_sell",
+            "hedge_loss_sell": "hedge_loss_sell",
+            "close_position": "close_position",
+            "replacement_hedge": "replacement_hedge",
+            "far_month_hedge": "far_month_hedge"
+        }
         
         # Mock logger
         self.logger = MagicMock()
@@ -743,6 +763,173 @@ class TestStrategies(unittest.TestCase):
         # Test negative adjustment
         result = self.strategy._adjust_strike_for_conflict(18000, -50)
         self.assertEqual(result, 17950)
+
+     def test_execute_trend_based_strategy_sideways(self):
+         """Test executing trend-based strategy with sideways trend"""
+         # Set sideways trend
+         self.config.trend = "sideways"
+         
+         # Mock methods
+         self.strategy._execute_short_straddle = MagicMock()
+         self.strategy._execute_short_strangle = MagicMock()
+         
+         # Execute
+         self.strategy._execute_trend_based_strategy()
+         
+         # Verify
+         self.strategy._execute_short_straddle.assert_called_once()
+         self.strategy._execute_short_strangle.assert_not_called()
+     
+     def test_execute_trend_based_strategy_bullish(self):
+         """Test executing trend-based strategy with bullish trend"""
+         # Set bullish trend
+         self.config.trend = "bullish"
+         
+         # Mock methods
+         self.strategy._execute_trend_based_orders = MagicMock()
+         
+         # Execute
+         self.strategy._execute_trend_based_strategy()
+         
+         # Verify
+         self.strategy._execute_trend_based_orders.assert_called_once()
+         args = self.strategy._execute_trend_based_orders.call_args[0]
+         self.assertEqual(args[2], "bullish")
+     
+     def test_execute_trend_based_strategy_bearish(self):
+         """Test executing trend-based strategy with bearish trend"""
+         # Set bearish trend
+         self.config.trend = "bearish"
+         
+         # Mock methods
+         self.strategy._execute_trend_based_orders = MagicMock()
+         
+         # Execute
+         self.strategy._execute_trend_based_strategy()
+         
+         # Verify
+         self.strategy._execute_trend_based_orders.assert_called_once()
+         args = self.strategy._execute_trend_based_orders.call_args[0]
+         self.assertEqual(args[2], "bearish")
+    
+     def test_place_trend_order(self):
+         """Test placing trend order"""
+         expiry = datetime.datetime.now() + datetime.timedelta(days=90)
+         strike = 18000
+         option_type = "CE"
+         order_type = "normal"
+         
+         # Mock methods
+         self.strategy._buy_order_exists_at_strike = MagicMock(return_value=False)
+         self.strategy._place_single_hedge_buy_order = MagicMock()
+         
+         # Execute
+         self.strategy._place_trend_order(expiry, strike, option_type, order_type)
+         
+         # Verify
+         self.order_manager.get_instrument_token.assert_called_once()
+         self.order_manager.place_order.assert_called_once()
+         self.strategy._place_single_hedge_buy_order.assert_called_once()
+    
+     def test_check_strategy_conversion(self):
+         """Test checking strategy conversion"""
+         expiry = datetime.datetime.now() + datetime.timedelta(days=90)
+         normal_type = "PE"
+         far_type = "CE"
+         
+         # Mock positions with far order in profit
+         self.order_manager.positions = {"net": [
+             {
+                 "tradingsymbol": "NIFTY25APR20000CE",
+                 "quantity": -50,
+                 "sell_price": 100,
+                 "instrument_token": 12345
+             }
+         ]}
+         
+         # Mock instruments cache
+         self.order_manager.instruments_cache = {
+             "key1": {
+                 "instrument_token": 12345,
+                 "strike": 20000,
+                 "instrument_type": "CE",
+                 "expiry": expiry
+             }
+         }
+         
+         # Mock orders
+         self.order_manager.orders = {
+             "order123": {
+                 "order_id": "order123",
+                 "tag": self.config.tags["trend_ce"]
+             }
+         }
+         
+         # Mock LTP
+         self.order_manager.get_ltp.return_value = 110  # 10% increase
+         
+         # Mock methods
+         self.strategy._is_trend_order = MagicMock(return_value=True)
+         self.strategy._close_position = MagicMock()
+         self.strategy._close_hedge_for_position = MagicMock()
+         self.strategy._place_trend_order = MagicMock()
+         
+         # Execute
+         self.strategy._check_strategy_conversion(expiry, normal_type, far_type)
+         
+         # Verify
+         self.strategy._is_trend_order.assert_called_once()
+         self.strategy._close_position.assert_called_once()
+         self.strategy._close_hedge_for_position.assert_called_once()
+         self.strategy._place_trend_order.assert_called_once()
+    
+     def test_sell_order_exists_for_type(self):
+         """Test checking if sell order exists for type"""
+         expiry = datetime.datetime.now() + datetime.timedelta(days=90)
+         option_type = "CE"
+         
+         # Mock positions with sell order
+         self.order_manager.positions = {"net": [
+             {
+                 "tradingsymbol": "NIFTY25APR18000CE",
+                 "quantity": -50,
+                 "sell_price": 100,
+                 "instrument_token": 12345
+             }
+         ]}
+         
+         # Mock instruments cache
+         self.order_manager.instruments_cache = {
+             "key1": {
+                 "instrument_token": 12345,
+                 "strike": 18000,
+                 "instrument_type": "CE",
+                 "expiry": expiry
+             }
+         }
+         
+         # Execute
+         result = self.strategy._sell_order_exists_for_type(expiry, option_type)
+         
+         # Verify
+         self.assertTrue(result)
+         
+         # Test with no matching sell order
+         self.order_manager.positions = {"net": [
+             {
+                 "tradingsymbol": "NIFTY25APR18000PE",
+                 "quantity": -50,
+                 "sell_price": 100,
+                 "instrument_token": 67890
+             }
+         ]}
+         
+         # Execute
+         result = self.strategy._sell_order_exists_for_type(expiry, option_type)
+         
+         # Verify
+         self.assertFalse(result)
+
 
 if __name__ == "__main__":
     unittest.main()
