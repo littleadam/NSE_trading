@@ -21,7 +21,7 @@ class KiteAuth:
         self.api_secret = os.getenv('API_SECRET')
         self.access_token = os.getenv('ACCESS_TOKEN')
         self.request_token = os.getenv('REQUEST_TOKEN')
-        self.redirect_url = "https://localhost:8080"
+        self.redirect_url = os.getenv('REDIRECT_URL', 'https://localhost:8080') 
         
         if not self.api_key or not self.api_secret:
             self.logger.error("KiteAuth: API key or secret not found in .env file")
@@ -29,7 +29,40 @@ class KiteAuth:
         
         self.kite = KiteConnect(api_key=self.api_key)
         self.logger.info(f"KiteAuth: KiteConnect initialized with API key: {self.api_key}")
-    
+
+    def update_env_variables(self, variables):
+         """
+         Update multiple environment variables in the .env file
+         
+         Args:
+             variables: Dictionary of variable names and values to update
+         """
+         env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+         
+         # Read the current .env file
+         with open(env_path, 'r') as file:
+             lines = file.readlines()
+         
+         # Update the specified keys
+         updated_keys = set()
+         for i, line in enumerate(lines):
+             for key, value in variables.items():
+                 if line.startswith(f"{key}="):
+                     lines[i] = f"{key}={value}\n"
+                     updated_keys.add(key)
+                     break
+         
+         # Add any keys that don't exist
+         for key, value in variables.items():
+             if key not in updated_keys:
+                 lines.append(f"{key}={value}\n")
+         
+         # Write back to the .env file
+         with open(env_path, 'w') as file:
+             file.writelines(lines)
+         
+         self.logger.info(f"KiteAuth: Updated {len(variables)} variables in .env file")
+
     def get_login_url(self):
         """
         Get the login URL for Kite Connect
