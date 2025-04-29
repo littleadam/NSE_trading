@@ -25,6 +25,7 @@ def install_packages():
         'pandas',
         'numpy',
         'scipy',
+        'schedule',
         'pytest',
         'pytest-cov'
     ]
