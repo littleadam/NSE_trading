@@ -1,5 +1,4 @@
-!pip install dotenv
-!pip install schedule
+#pip install dotenv
 import os
 import sys
 import subprocess
@@ -90,8 +89,11 @@ def generate_access_token():
     from config import Config
     
     config = Config()
-    logger = Logger(config).get_logger()
-    
+    logger_instance = Logger(log_level=config.log_level, 
+                         log_file=config.log_file, 
+                         error_log_file=config.error_log_file)
+    logger = logger_instance.get_logger()
+        
     kite_auth = KiteAuth(logger)
     
     print("Generating access token...")
