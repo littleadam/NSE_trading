@@ -1,0 +1,35 @@
+diff --git a/app/config.py b/app/config.py
+index abc1234..def5678 100644
+--- a/app/config.py
++++ b/app/config.py
+@@ -1,5 +1,7 @@
+ import os
+
++# Load environment variables from .env
++from dotenv import load_dotenv; load_dotenv()
+ API_KEY = os.getenv("API_KEY")
+ SECRET_KEY = os.getenv("SECRET_KEY")
+ VARIANCE_LIMIT = float(os.getenv("VARIANCE_LIMIT", "0.5"))
+diff --git a/app/trading.py b/app/trading.py
+index 123abcd..789efgh 100644
+--- a/app/trading.py
++++ b/app/trading.py
+@@ -45,7 +45,11 @@ def should_place_order(latest_price, entry_price):
+-    return abs(latest_price - entry_price) >= config.VARIANCE_LIMIT
++    try:
++        return abs(latest_price - entry_price) >= config.VARIANCE_LIMIT
++    except Exception as e:
++        logger.error(f"Error in should_place_order: {e}")
++        return False
+
+diff --git a/tests/test_trading.py b/tests/test_trading.py
+index 89abcd1..cdef234 100644
+--- a/tests/test_trading.py
++++ b/tests/test_trading.py
+@@ -10,6 +10,10 @@ def test_should_place_order():
+     entry_price = 200.0
+     assert should_place_order(201.0, entry_price) == True
+     assert should_place_order(200.1, entry_price) == False
++    # Edge case test for exception handling
++    with patch("app.trading.config.VARIANCE_LIMIT", side_effect=Exception("test")):
++        assert should_place_order(201.0, entry_price) == False
