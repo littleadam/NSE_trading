@@ -21,6 +21,12 @@ class Logger:
         # Set default log level and log file
         self.log_level = log_level or "INFO"
         self.log_file = log_file or "logs/nse_trading.log"
+        
+        # Ensure log_level is a string before using getattr
+        if not isinstance(self.log_level, str):
+            print(f"Warning: Invalid log_level type ({type(self.log_level)}). Defaulting to INFO.", file=sys.stderr)
+            self.log_level = "INFO"
+
         self.error_log_file = error_log_file or "logs/error.log"
         
         # Configure logger
