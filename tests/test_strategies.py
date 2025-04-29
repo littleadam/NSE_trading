@@ -764,7 +764,7 @@ class TestStrategies(unittest.TestCase):
         result = self.strategy._adjust_strike_for_conflict(18000, -50)
         self.assertEqual(result, 17950)
 
-     def test_execute_trend_based_strategy_sideways(self):
+    def test_execute_trend_based_strategy_sideways(self):
          """Test executing trend-based strategy with sideways trend"""
          # Set sideways trend
          self.config.trend = "sideways"
@@ -780,7 +780,7 @@ class TestStrategies(unittest.TestCase):
          self.strategy._execute_short_straddle.assert_called_once()
          self.strategy._execute_short_strangle.assert_not_called()
      
-     def test_execute_trend_based_strategy_bullish(self):
+    def test_execute_trend_based_strategy_bullish(self):
          """Test executing trend-based strategy with bullish trend"""
          # Set bullish trend
          self.config.trend = "bullish"
@@ -796,7 +796,7 @@ class TestStrategies(unittest.TestCase):
          args = self.strategy._execute_trend_based_orders.call_args[0]
          self.assertEqual(args[2], "bullish")
      
-     def test_execute_trend_based_strategy_bearish(self):
+    def test_execute_trend_based_strategy_bearish(self):
          """Test executing trend-based strategy with bearish trend"""
          # Set bearish trend
          self.config.trend = "bearish"
@@ -812,7 +812,7 @@ class TestStrategies(unittest.TestCase):
          args = self.strategy._execute_trend_based_orders.call_args[0]
          self.assertEqual(args[2], "bearish")
     
-     def test_place_trend_order(self):
+    def test_place_trend_order(self):
          """Test placing trend order"""
          expiry = datetime.datetime.now() + datetime.timedelta(days=90)
          strike = 18000
@@ -831,7 +831,7 @@ class TestStrategies(unittest.TestCase):
          self.order_manager.place_order.assert_called_once()
          self.strategy._place_single_hedge_buy_order.assert_called_once()
     
-     def test_check_strategy_conversion(self):
+    def test_check_strategy_conversion(self):
          """Test checking strategy conversion"""
          expiry = datetime.datetime.now() + datetime.timedelta(days=90)
          normal_type = "PE"
@@ -883,7 +883,7 @@ class TestStrategies(unittest.TestCase):
          self.strategy._close_hedge_for_position.assert_called_once()
          self.strategy._place_trend_order.assert_called_once()
     
-     def test_sell_order_exists_for_type(self):
+    def test_sell_order_exists_for_type(self):
          """Test checking if sell order exists for type"""
          expiry = datetime.datetime.now() + datetime.timedelta(days=90)
          option_type = "CE"
