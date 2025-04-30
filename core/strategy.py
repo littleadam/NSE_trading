@@ -35,7 +35,7 @@ class Strategy:
         
         self.logger.info("Strategy: Strategy module initialized")
 
-         def _execute_trend_based_strategy(self):
+    def _execute_trend_based_strategy(self):
          """
          Execute trend-based strategy based on the trend configuration
          """
