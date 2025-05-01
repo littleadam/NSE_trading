@@ -28,7 +28,7 @@ class OrderManager:
         self._init_instruments_cache()
         self.logger.info("OrderManager: Order manager initialized")
     
-         def download_instruments(self):
+    def download_instruments(self):
          """
          Download instruments data and save to CSV
          
@@ -54,7 +54,7 @@ class OrderManager:
              self.logger.error(f"OrderManager: Failed to download instruments: {str(e)}")
              return False
     
-     def load_instruments_from_csv(self):
+    def load_instruments_from_csv(self):
          """
          Load instruments from CSV file
          
@@ -88,7 +88,7 @@ class OrderManager:
              self.logger.error(f"OrderManager: Failed to load instruments from CSV: {str(e)}")
              return None
     
-     def get_lot_size(self, instrument_token):
+    def get_lot_size(self, instrument_token):
          """
          Get lot size for an instrument
          
@@ -112,7 +112,7 @@ class OrderManager:
              self.logger.error(f"OrderManager: Failed to get lot size: {str(e)}")
              return self.config.lot_size
     
-     def _init_instruments_cache(self):
+    def _init_instruments_cache(self):
          """
          Initialize instruments cache
          """
@@ -144,7 +144,7 @@ class OrderManager:
          except Exception as e:
              self.logger.error(f"OrderManager: Error initializing instruments cache: {str(e)}")
     
-     def _api_call_with_retry(self, func, *args, **kwargs):
+    def _api_call_with_retry(self, func, *args, **kwargs):
          """
          Make API call with retry
          
