@@ -68,7 +68,7 @@ class Strategy:
              # For bearish trend, place CE orders normally and PE orders far away
              self._execute_trend_based_orders(far_month_expiry, atm_strike, "bearish")
     
-     def _execute_trend_based_orders(self, expiry, atm_strike, trend):
+    def _execute_trend_based_orders(self, expiry, atm_strike, trend):
          """
          Execute trend-based orders
          
@@ -122,7 +122,7 @@ class Strategy:
          # Check if we need to convert to full straddle/strangle
          self._check_strategy_conversion(expiry, normal_type, far_type)
     
-     def _place_trend_order(self, expiry, strike, option_type, order_type):
+    def _place_trend_order(self, expiry, strike, option_type, order_type):
          """
          Place a trend-based order
          
@@ -171,7 +171,7 @@ class Strategy:
          else:
              self.logger.error(f"Strategy: Failed to place trend {order_type} order for {option_type}")
     
-     def _check_strategy_conversion(self, expiry, normal_type, far_type):
+    def _check_strategy_conversion(self, expiry, normal_type, far_type):
          """
          Check if we need to convert to full straddle/strangle
          
@@ -239,7 +239,7 @@ class Strategy:
                  
              self._place_trend_order(expiry, strike, far_type, "normal")
      
-     def _is_trend_order(self, position):
+    def _is_trend_order(self, position):
          """
          Check if a position is a trend order
          
@@ -261,7 +261,7 @@ class Strategy:
          tag = order.get('tag', '')
          return tag in [self.config.tags['trend_ce'], self.config.tags['trend_pe']]
     
-     def _close_hedge_for_position(self, position):
+    def _close_hedge_for_position(self, position):
          """
          Close hedge buy orders for a position
          
@@ -300,7 +300,7 @@ class Strategy:
                  self._close_position(hedge_position)
                  break
     
-     def _sell_order_exists_for_type(self, expiry, option_type):
+    def _sell_order_exists_for_type(self, expiry, option_type):
          """
          Check if a sell order exists for a specific option type
          
